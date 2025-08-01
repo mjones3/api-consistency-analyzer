@@ -1,0 +1,35 @@
+server:
+  port: 8081
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: legacy-donor-service
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,openapi
+  endpoint:
+    health:
+      show-details: always
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+  info:
+    title: Legacy Donor Service API
+    description: Legacy blood banking donor service with inconsistent API patterns
+    version: 1.0.0
+    contact:
+      name: Arc One Blood Banking
+      email: support@arcone.com
+
+logging:
+  level:
+    com.arcone.legacy: DEBUG
+    org.springframework.web: INFO

@@ -31,7 +31,7 @@ A comprehensive microservices API governance platform that automatically discove
 - Helm 3.x
 - Docker (for local development)
 
-### Local Development Setup
+### Kubernetes Deployment (Recommended)
 
 1. **Clone the repository**
 ```bash
@@ -41,32 +41,39 @@ cd microservices-api-governance
 
 2. **Set up local Istio environment**
 ```bash
-# Ultra-stable setup (recommended)
 ./scripts/setup-istio-stable.sh
-
-# OR standard setup
-./scripts/setup-local-istio.sh
-
-# OR latest setup (advanced users only)
-./scripts/setup-istio-latest.sh
 ```
 
-3. **Deploy mock services**
+3. **Deploy everything to Kubernetes**
 ```bash
-./scripts/deploy-mock-services.sh
+./scripts/deploy-kubernetes.sh
 ```
 
-4. **Run the platform locally**
+4. **Access services**
+```bash
+./port-forward-k8s.sh
+```
+
+5. **View analysis results**
+```bash
+./scripts/view-analysis-results.sh
+```
+
+### Local Development (Alternative)
+
+1. **Build Docker images**
+```bash
+./scripts/build-services.sh
+```
+
+2. **Run with Docker Compose**
 ```bash
 docker-compose up -d
 ```
 
 **If you encounter network conflicts:**
 ```bash
-# Run the automated fix
 ./scripts/fix-docker-networks.sh
-
-# Then try again
 docker-compose up -d
 ```
 

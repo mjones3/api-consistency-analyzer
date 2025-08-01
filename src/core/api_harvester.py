@@ -15,7 +15,8 @@ from openapi_spec_validator import validate_spec
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from src.core.istio_discovery import ServiceInfo
-from src.utils.metrics import harvest_metrics
+# Temporarily disable metrics to bypass label issues
+# from src.utils.metrics import harvest_metrics
 
 logger = structlog.get_logger()
 
@@ -121,32 +122,33 @@ class HarvestMetrics:
         self.validation_errors = 0
         self.total_duration = 0
     
-    def record_service_discovered(self):
+    def record_service_discovered(self, namespace: str = "unknown"):
         """Record a discovered service."""
         self.services_discovered += 1
-        harvest_metrics.discovered_services.inc()
+        # Temporarily disabled: harvest_metrics.discovered_services.labels(namespace=namespace).inc()
     
     def record_spec_attempt(self):
         """Record a spec harvest attempt."""
         self.specs_attempted += 1
     
-    def record_spec_success(self):
+    def record_spec_success(self, service: str = "unknown", namespace: str = "unknown"):
         """Record a successful spec harvest."""
         self.specs_successful += 1
-        harvest_metrics.harvested_specs.inc()
+        # Temporarily disabled: harvest_metrics.harvested_specs.labels(...)
     
-    def record_spec_failure(self):
+    def record_spec_failure(self, service: str = "unknown", namespace: str = "unknown"):
         """Record a failed spec harvest."""
         self.specs_failed += 1
+        # Temporarily disabled: harvest_metrics.harvested_specs.labels(...)
     
     def record_validation_error(self):
         """Record a validation error."""
         self.validation_errors += 1
     
-    def record_duration(self, duration: float):
+    def record_duration(self, duration: float, operation: str = "harvest"):
         """Record harvest duration."""
         self.total_duration = duration
-        harvest_metrics.harvest_duration.observe(duration)
+        # Temporarily disabled: harvest_metrics.harvest_duration.labels(operation=operation).observe(duration)
     
     @property
     def success_rate(self) -> float:
@@ -210,11 +212,11 @@ class APIHarvester:
                     await self.storage.save_spec(result)
                 elif isinstance(result, Exception):
                     logger.error("Spec harvest failed", error=str(result))
-                    self.metrics.record_spec_failure()
+                    # Note: service info not available here for failed results
         
         # Record metrics
         duration = (datetime.utcnow() - start_time).total_seconds()
-        self.metrics.record_duration(duration)
+        self.metrics.record_duration(duration, "batch_harvest")
         
         logger.info(
             "API spec harvest completed",
@@ -252,7 +254,7 @@ class APIHarvester:
                             service=service.name,
                             status=response.status
                         )
-                        self.metrics.record_spec_failure()
+                        self.metrics.record_spec_failure(service.name, service.namespace)
                         return None
                     
                     spec_content = await response.json()
@@ -269,7 +271,7 @@ class APIHarvester:
                     # Validate spec
                     await self._validate_spec(spec)
                     
-                    self.metrics.record_spec_success()
+                    self.metrics.record_spec_success(service.name, service.namespace)
                     logger.info("Successfully harvested API spec", service=service.name)
                     
                     return spec
@@ -280,7 +282,7 @@ class APIHarvester:
                 service=service.name,
                 error=str(e)
             )
-            self.metrics.record_spec_failure()
+            self.metrics.record_spec_failure(service.name, service.namespace)
             return None
     
     def _extract_version(self, spec_content: Dict) -> Optional[str]:

@@ -1,0 +1,26 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: api-governance
+  namespace: api-governance
+spec:
+  hosts:
+    - api-governance.local
+    - api-governance
+    - api-governance.api-governance.svc.cluster.local
+  gateways:
+    - api-governance-gateway
+    - mesh
+  http:
+    - match:
+        - uri:
+            prefix: /
+      route:
+        - destination:
+            host: api-governance
+            port:
+              number: 80
+      timeout: 60s
+      retries:
+        attempts: 3
+        perTryTimeout: 20s

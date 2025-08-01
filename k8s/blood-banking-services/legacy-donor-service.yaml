@@ -1,0 +1,169 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: blood-banking
+  labels:
+    istio-injection: enabled
+    app.kubernetes.io/name: blood-banking
+    app.kubernetes.io/part-of: arc-one-platform
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: legacy-donor-service
+  namespace: blood-banking
+  labels:
+    app: legacy-donor-service
+    version: v1
+    component: donor-management
+    domain: blood-banking
+    compliance: non-fhir
+    service-type: spring-boot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: legacy-donor-service
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: legacy-donor-service
+        version: v1
+        component: donor-management
+        domain: blood-banking
+        compliance: non-fhir
+        service-type: spring-boot
+      annotations:
+        sidecar.istio.io/inject: "true"
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8081"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      containers:
+        - name: legacy-donor-service
+          image: legacy-donor-service:latest
+          imagePullPolicy: Never # For local development
+          ports:
+            - containerPort: 8081
+              name: http
+              protocol: TCP
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "kubernetes"
+            - name: SERVER_PORT
+              value: "8081"
+            - name: MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE
+              value: "health,info,metrics,prometheus,openapi"
+            - name: MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS
+              value: "always"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8081
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8081
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8081
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: legacy-donor-service
+  namespace: blood-banking
+  labels:
+    app: legacy-donor-service
+    service: legacy-donor-service
+    domain: blood-banking
+    compliance: non-fhir
+    service-type: spring-boot
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+spec:
+  ports:
+    - port: 8081
+      targetPort: 8081
+      protocol: TCP
+      name: http
+  selector:
+    app: legacy-donor-service
+  type: ClusterIP
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: legacy-donor-service
+  namespace: blood-banking
+spec:
+  hosts:
+    - legacy-donor-service
+    - legacy-donor-service.blood-banking.svc.cluster.local
+  http:
+    - match:
+        - uri:
+            prefix: /
+      route:
+        - destination:
+            host: legacy-donor-service
+            port:
+              number: 8081
+      timeout: 30s
+      retries:
+        attempts: 3
+        perTryTimeout: 10s
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: legacy-donor-service
+  namespace: blood-banking
+spec:
+  host: legacy-donor-service
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 10
+      http:
+        http1MaxPendingRequests: 10
+        maxRequestsPerConnection: 2
+    loadBalancer:
+      simple: LEAST_CONN
+    outlierDetection:
+      consecutiveErrors: 3
+      interval: 30s
+      baseEjectionTime: 30s
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: legacy-donor-service
+  namespace: blood-banking
+spec:
+  selector:
+    matchLabels:
+      app: legacy-donor-service
+  mtls:
+    mode: PERMISSIVE

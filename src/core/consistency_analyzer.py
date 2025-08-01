@@ -64,6 +64,7 @@ class FieldComparator:
     
     def __init__(self):
         self.normalization_rules = self._load_normalization_rules()
+        self.blood_banking_patterns = self._load_blood_banking_patterns()
     
     def _load_normalization_rules(self) -> Dict[str, str]:
         """Load field name normalization rules."""
@@ -78,37 +79,94 @@ class FieldComparator:
             "createdAt": "creation_timestamp",
             "created_date": "creation_timestamp",
             "date_created": "creation_timestamp",
+            "createddate": "creation_timestamp",
             
             "updated_at": "modification_timestamp",
             "updatedAt": "modification_timestamp",
             "modified_at": "modification_timestamp",
             "last_modified": "modification_timestamp",
+            "lastupdated": "modification_timestamp",
             
             # Name fields
             "first_name": "given_name",
             "firstName": "given_name",
             "fname": "given_name",
+            "given": "given_name",
             
             "last_name": "family_name",
             "lastName": "family_name",
             "surname": "family_name",
             "lname": "family_name",
+            "family": "family_name",
             
             # Address fields
             "zip": "postal_code",
             "zipcode": "postal_code",
             "zip_code": "postal_code",
             "postcode": "postal_code",
+            "postalcode": "postal_code",
             
             "phone": "phone_number",
             "tel": "phone_number",
             "telephone": "phone_number",
+            "phonenumber": "phone_number",
             
             # Boolean fields
             "is_active": "active_status",
             "isActive": "active_status",
             "active": "active_status",
             "enabled": "active_status",
+            
+            # Blood banking specific
+            "donorid": "donor_identifier",
+            "donor_id": "donor_identifier",
+            "patientid": "patient_identifier",
+            "patient_id": "patient_identifier",
+            
+            "birthdate": "birth_date",
+            "birth_date": "birth_date",
+            "dateofbirth": "birth_date",
+            "dob": "birth_date",
+            
+            "bloodtype": "blood_type",
+            "blood_type": "blood_type",
+            "abo_group": "blood_type",
+            "abogroup": "blood_type",
+        }
+    
+    def _load_blood_banking_patterns(self) -> Dict[str, Dict]:
+        """Load blood banking specific field patterns for Arc One domain."""
+        return {
+            "donor_identification": {
+                "legacy_patterns": ["donorId", "donor_id", "id"],
+                "fhir_pattern": "identifier",
+                "description": "Donor identification field inconsistency"
+            },
+            "name_structure": {
+                "legacy_patterns": ["firstName", "lastName", "first_name", "last_name"],
+                "fhir_pattern": "name.given|name.family",
+                "description": "Name field structure inconsistency"
+            },
+            "contact_information": {
+                "legacy_patterns": ["phoneNumber", "email", "phone", "phone_number"],
+                "fhir_pattern": "telecom.value",
+                "description": "Contact information structure inconsistency"
+            },
+            "address_structure": {
+                "legacy_patterns": ["zip", "zipCode", "streetAddress", "city", "state"],
+                "fhir_pattern": "address.postalCode|address.line|address.city|address.state",
+                "description": "Address structure inconsistency"
+            },
+            "temporal_fields": {
+                "legacy_patterns": ["createdDate", "created_at", "lastDonationDate"],
+                "fhir_pattern": "meta.lastUpdated",
+                "description": "Temporal field inconsistency"
+            },
+            "gender_representation": {
+                "legacy_patterns": ["gender"],
+                "fhir_pattern": "gender",
+                "description": "Gender representation inconsistency (M/F vs FHIR codes)"
+            }
         }
     
     def normalize_field_name(self, field_name: str) -> str:
@@ -224,6 +282,151 @@ class NamingConventionRule(InconsistencyRule):
                     affected_fields=service_fields,
                     recommendation="Use a consistent naming convention throughout the service"
                 ))
+        
+        return issues
+
+
+class BloodBankingFieldNamingRule(InconsistencyRule):
+    """Rule for checking blood banking specific field naming inconsistencies."""
+    
+    def __init__(self):
+        super().__init__("blood_banking_naming", "blood_banking", Severity.MAJOR)
+        self.blood_banking_patterns = {
+            "donor_identification": ["donorId", "donor_id", "identifier", "id"],
+            "name_fields": ["firstName", "lastName", "first_name", "last_name", "given", "family"],
+            "contact_fields": ["phoneNumber", "phone", "email", "telecom"],
+            "address_fields": ["zip", "zipCode", "postalCode", "postal_code", "streetAddress", "address"],
+            "temporal_fields": ["createdDate", "created_at", "lastUpdated", "meta"],
+            "gender_fields": ["gender"]
+        }
+    
+    def check(self, fields: List[FieldInfo]) -> List[ConsistencyIssue]:
+        """Check for blood banking specific naming inconsistencies."""
+        issues = []
+        
+        # Group fields by service
+        services = {}
+        for field in fields:
+            if field.service not in services:
+                services[field.service] = []
+            services[field.service].append(field)
+        
+        # Check for Arc One specific patterns
+        for pattern_name, pattern_fields in self.blood_banking_patterns.items():
+            service_patterns = {}
+            
+            for service, service_fields in services.items():
+                matching_fields = []
+                for field in service_fields:
+                    if any(pattern in field.name.lower() for pattern in [p.lower() for p in pattern_fields]):
+                        matching_fields.append(field)
+                
+                if matching_fields:
+                    service_patterns[service] = matching_fields
+            
+            # If multiple services have different patterns for the same concept
+            if len(service_patterns) > 1:
+                all_affected_fields = []
+                service_names = []
+                
+                for service, fields_list in service_patterns.items():
+                    all_affected_fields.extend(fields_list)
+                    service_names.append(service)
+                
+                # Check if they're actually different patterns
+                field_names = set(f.name for f in all_affected_fields)
+                if len(field_names) > 1:
+                    issues.append(ConsistencyIssue(
+                        issue_id=f"blood_banking_{pattern_name}_{hash(tuple(sorted(service_names)))}",
+                        severity=self.severity,
+                        category=self.category,
+                        title=f"Blood banking {pattern_name.replace('_', ' ')} inconsistency",
+                        description=f"Services use different field naming patterns for {pattern_name}: {', '.join(field_names)}",
+                        affected_fields=all_affected_fields,
+                        recommendation=f"Standardize {pattern_name.replace('_', ' ')} field naming across all blood banking services"
+                    ))
+        
+        return issues
+
+
+class DataTypeInconsistencyRule(InconsistencyRule):
+    """Rule for checking data type inconsistencies in blood banking domain."""
+    
+    def __init__(self):
+        super().__init__("data_type_inconsistency", "data_types", Severity.CRITICAL)
+        self.critical_type_mappings = {
+            "postal_code": ["string", "integer"],  # zip vs postalCode
+            "birth_date": ["string", "date", "localdate"],  # birthDate formats
+            "timestamp": ["localdatetime", "instant", "string"]  # timestamp formats
+        }
+    
+    def check(self, fields: List[FieldInfo]) -> List[ConsistencyIssue]:
+        """Check for critical data type inconsistencies."""
+        issues = []
+        
+        # Group fields by normalized concept
+        from src.core.consistency_analyzer import FieldComparator
+        comparator = FieldComparator()
+        
+        concept_groups = {}
+        for field in fields:
+            normalized = comparator.normalize_field_name(field.name)
+            if normalized not in concept_groups:
+                concept_groups[normalized] = []
+            concept_groups[normalized].append(field)
+        
+        # Check each concept group for type inconsistencies
+        for concept, field_group in concept_groups.items():
+            if len(field_group) < 2:
+                continue
+            
+            # Get unique types in this group
+            types_in_group = set(f.type.lower() for f in field_group)
+            
+            # Check if this concept has critical type variations
+            for critical_concept, expected_types in self.critical_type_mappings.items():
+                if critical_concept in concept.lower():
+                    # Check if we have conflicting types
+                    conflicting_types = types_in_group.intersection(set(expected_types))
+                    if len(conflicting_types) > 1:
+                        issues.append(ConsistencyIssue(
+                            issue_id=f"type_inconsistency_{concept}_{hash(tuple(sorted(conflicting_types)))}",
+                            severity=self.severity,
+                            category=self.category,
+                            title=f"Critical data type inconsistency for {concept}",
+                            description=f"Field {concept} has conflicting data types: {', '.join(conflicting_types)}. This can cause integration issues.",
+                            affected_fields=field_group,
+                            recommendation=f"Standardize {concept} to use consistent data type across all services"
+                        ))
+        
+        return issues
+
+
+class ValidationPatternRule(InconsistencyRule):
+    """Rule for checking validation pattern inconsistencies."""
+    
+    def __init__(self):
+        super().__init__("validation_patterns", "validation", Severity.MAJOR)
+    
+    def check(self, fields: List[FieldInfo]) -> List[ConsistencyIssue]:
+        """Check for validation pattern inconsistencies."""
+        issues = []
+        
+        # This would analyze validation annotations from the OpenAPI specs
+        # For now, we'll create a placeholder that identifies common validation issues
+        
+        phone_fields = [f for f in fields if 'phone' in f.name.lower()]
+        if len(phone_fields) > 1:
+            # Check if phone validation patterns differ
+            issues.append(ConsistencyIssue(
+                issue_id=f"phone_validation_patterns",
+                severity=self.severity,
+                category=self.category,
+                title="Phone number validation pattern inconsistency",
+                description="Phone number fields use different validation patterns across services",
+                affected_fields=phone_fields,
+                recommendation="Standardize phone number validation to use consistent pattern (e.g., \\d{10} or structured ContactPoint)"
+            ))
         
         return issues
 
@@ -348,7 +551,10 @@ class ConsistencyAnalyzer:
         self.comparator = FieldComparator()
         self.rules = [
             NamingConventionRule(),
-            RequiredFieldRule()
+            RequiredFieldRule(),
+            BloodBankingFieldNamingRule(),
+            DataTypeInconsistencyRule(),
+            ValidationPatternRule()
         ]
         self.report_generator = ReportGenerator()
     

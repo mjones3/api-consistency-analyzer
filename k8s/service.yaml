@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-governance
+  namespace: api-governance
+  labels:
+    app: api-governance
+    service: api-governance
+spec:
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+      name: http
+    - port: 9090
+      targetPort: 9090
+      protocol: TCP
+      name: metrics
+  selector:
+    app: api-governance
+  type: ClusterIP

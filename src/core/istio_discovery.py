@@ -140,7 +140,7 @@ class IstioServiceDiscovery:
         return DiscoveryConfig(
             namespaces=namespaces,
             label_selectors={
-                "app": os.getenv("SERVICE_LABEL_APP", "spring-boot")
+                "service-type": os.getenv("SERVICE_LABEL_APP", "spring-boot")
             },
             annotation_filters={
                 "sidecar.istio.io/inject": "true"

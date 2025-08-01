@@ -11,15 +11,24 @@ metadata:
 rules:
   # Core API permissions
   - apiGroups: [""]
-    resources: ["services", "namespaces", "pods"]
+    resources: ["services", "namespaces", "pods", "endpoints"]
+    verbs: ["get", "list", "watch"]
+  # Apps API permissions
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
     verbs: ["get", "list", "watch"]
   # Istio API permissions
   - apiGroups: ["networking.istio.io"]
-    resources: ["virtualservices", "destinationrules", "gateways"]
+    resources:
+      ["virtualservices", "destinationrules", "gateways", "serviceentries"]
     verbs: ["get", "list", "watch"]
   # Security API permissions
   - apiGroups: ["security.istio.io"]
     resources: ["peerauthentications", "authorizationpolicies"]
+    verbs: ["get", "list", "watch"]
+  # Extensions API permissions
+  - apiGroups: ["extensions.istio.io"]
+    resources: ["wasmplugins"]
     verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
