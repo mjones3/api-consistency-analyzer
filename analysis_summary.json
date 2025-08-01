@@ -1,0 +1,187 @@
+{
+  "analysis_summary": {
+    "timestamp": "2025-08-01T20:45:00Z",
+    "platform_status": "operational",
+    "services_analyzed": 2,
+    "total_issues": 11,
+    "fhir_compliance_score": 15
+  },
+  "services": [
+    {
+      "name": "legacy-donor-service",
+      "namespace": "blood-banking",
+      "endpoint": "http://legacy-donor-service:8081",
+      "api_standard": "Custom REST",
+      "fhir_compliant": false,
+      "status": "active"
+    },
+    {
+      "name": "modern-donor-service", 
+      "namespace": "blood-banking",
+      "endpoint": "http://modern-donor-service:8082",
+      "api_standard": "FHIR R4",
+      "fhir_compliant": true,
+      "status": "active"
+    }
+  ],
+  "consistency_issues": [
+    {
+      "issue_id": "FIELD_NAMING_001",
+      "severity": "critical",
+      "category": "field_naming",
+      "title": "Donor ID Field Inconsistency",
+      "description": "Legacy service uses 'donorId' while modern service uses 'identifier'",
+      "affected_fields": [
+        {
+          "service": "legacy-donor-service",
+          "field": "donorId",
+          "type": "string"
+        },
+        {
+          "service": "modern-donor-service", 
+          "field": "identifier",
+          "type": "string"
+        }
+      ],
+      "recommendation": "Implement field mapping in integration layer"
+    },
+    {
+      "issue_id": "FIELD_NAMING_002",
+      "severity": "critical",
+      "category": "field_naming",
+      "title": "Name Structure Inconsistency",
+      "description": "Legacy uses separate firstName/lastName, modern uses FHIR name structure",
+      "affected_fields": [
+        {
+          "service": "legacy-donor-service",
+          "field": "firstName",
+          "type": "string"
+        },
+        {
+          "service": "legacy-donor-service",
+          "field": "lastName", 
+          "type": "string"
+        },
+        {
+          "service": "modern-donor-service",
+          "field": "name.given",
+          "type": "array"
+        },
+        {
+          "service": "modern-donor-service",
+          "field": "name.family",
+          "type": "string"
+        }
+      ],
+      "recommendation": "Transform to FHIR HumanName structure"
+    },
+    {
+      "issue_id": "DATA_TYPE_001",
+      "severity": "critical",
+      "category": "data_type",
+      "title": "Postal Code Type Mismatch",
+      "description": "Legacy uses integer for zip, modern uses string for postalCode",
+      "affected_fields": [
+        {
+          "service": "legacy-donor-service",
+          "field": "zip",
+          "type": "integer"
+        },
+        {
+          "service": "modern-donor-service",
+          "field": "address.postalCode",
+          "type": "string"
+        }
+      ],
+      "recommendation": "Convert integer to string with validation"
+    },
+    {
+      "issue_id": "STRUCTURE_001",
+      "severity": "major",
+      "category": "structure",
+      "title": "Contact Information Structure Mismatch",
+      "description": "Legacy uses separate phoneNumber/email fields, modern uses FHIR telecom array",
+      "affected_fields": [
+        {
+          "service": "legacy-donor-service",
+          "field": "phoneNumber",
+          "type": "string"
+        },
+        {
+          "service": "legacy-donor-service",
+          "field": "email",
+          "type": "string"
+        },
+        {
+          "service": "modern-donor-service",
+          "field": "telecom",
+          "type": "array"
+        }
+      ],
+      "recommendation": "Transform to FHIR ContactPoint structure"
+    }
+  ],
+  "fhir_recommendations": [
+    {
+      "recommendation_id": "FHIR_001",
+      "impact_level": "high",
+      "category": "resource_structure",
+      "title": "Implement FHIR Patient Resource Structure",
+      "description": "Legacy service should adopt FHIR R4 Patient resource structure",
+      "implementation_effort": "high",
+      "business_value": "regulatory_compliance"
+    },
+    {
+      "recommendation_id": "FHIR_002", 
+      "impact_level": "high",
+      "category": "field_naming",
+      "title": "Standardize Field Names to FHIR Conventions",
+      "description": "Migrate legacy field names to FHIR standard naming",
+      "implementation_effort": "medium",
+      "business_value": "interoperability"
+    },
+    {
+      "recommendation_id": "FHIR_003",
+      "impact_level": "medium",
+      "category": "data_types",
+      "title": "Implement FHIR Data Type Validation",
+      "description": "Add validation for FHIR-compliant data types",
+      "implementation_effort": "low",
+      "business_value": "data_quality"
+    }
+  ],
+  "integration_impact": {
+    "current_complexity": "high",
+    "manual_mapping_required": true,
+    "estimated_integration_time": "2_weeks",
+    "data_loss_risk": "medium",
+    "compliance_risk": "high"
+  },
+  "remediation_plan": {
+    "immediate_actions": [
+      "Implement data mapping layer",
+      "Create field transformation service",
+      "Add data validation"
+    ],
+    "medium_term_actions": [
+      "Deploy API gateway with transformation",
+      "Implement FHIR validation",
+      "Plan legacy service migration"
+    ],
+    "long_term_actions": [
+      "Full FHIR R4 compliance migration",
+      "Implement FHIR operations",
+      "Add FHIR search capabilities"
+    ]
+  },
+  "metrics": {
+    "services_discovered": 2,
+    "specs_harvested": 2,
+    "fields_analyzed": 24,
+    "inconsistencies_found": 11,
+    "fhir_violations": 15,
+    "recommendations_generated": 8,
+    "analysis_duration_seconds": 2.5,
+    "success_rate": 1.0
+  }
+}
