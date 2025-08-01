@@ -1,0 +1,22 @@
+apiVersion: v2
+name: api-governance
+description: Microservices API Governance Platform with Istio integration and FHIR compliance
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - microservices
+  - api-governance
+  - istio
+  - spring-boot
+  - fhir
+  - kubernetes
+home: https://github.com/your-org/microservices-api-governance
+sources:
+  - https://github.com/your-org/microservices-api-governance
+maintainers:
+  - name: API Governance Team
+    email: api-governance@your-org.com
+dependencies: []
+annotations:
+  category: Developer Tools

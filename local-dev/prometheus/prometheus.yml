@@ -1,0 +1,23 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: "api-governance"
+    static_configs:
+      - targets: ["api-governance:9090"]
+    scrape_interval: 10s
+    metrics_path: "/health/metrics"
+
+  - job_name: "mock-services"
+    static_configs:
+      - targets: ["mock-service-1:1080", "mock-service-2:1080"]
+    scrape_interval: 30s
