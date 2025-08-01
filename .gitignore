@@ -111,3 +111,5 @@ storage/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+examples/mock-services/legacy-donor-service/target/classes/com/arcone/legacy/controller/LegacyDonorController.class
+examples/mock-services/legacy-donor-service/target/classes/com/arcone/legacy/model/LegacyDonor.class
