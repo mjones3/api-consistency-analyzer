@@ -1,0 +1,127 @@
+version: "3.8"
+
+services:
+  api-governance:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "8080:8080"
+      - "9090:9090" # Metrics port
+    environment:
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+      - KUBERNETES_NAMESPACES=default,api-governance
+      - HARVEST_INTERVAL_HOURS=1
+      - MAX_CONCURRENT_REQUESTS=5
+      - FHIR_COMPLIANCE_MODE=true
+      - METRICS_ENABLED=true
+      - STORAGE_PATH=/data/api-specs
+    volumes:
+      - ./src:/app/src:ro
+      - api-specs-data:/data/api-specs
+      - ./local-dev/config:/app/config:ro
+    depends_on:
+      - prometheus
+      - grafana
+    networks:
+      - api-governance
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./local-dev/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--storage.tsdb.retention.time=200h"
+      - "--web.enable-lifecycle"
+    networks:
+      - api-governance
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:10.0.0
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./local-dev/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./local-dev/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - api-governance
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+  # Mock Spring Boot services for testing
+  mock-service-1:
+    image: mockserver/mockserver:5.15.0
+    ports:
+      - "8081:1080"
+    environment:
+      - MOCKSERVER_PROPERTY_FILE=/config/mockserver.properties
+      - MOCKSERVER_INITIALIZATION_JSON_PATH=/config/mock-service-1.json
+    volumes:
+      - ./local-dev/mock-services/service-1:/config:ro
+    networks:
+      - api-governance
+    restart: unless-stopped
+
+  mock-service-2:
+    image: mockserver/mockserver:5.15.0
+    ports:
+      - "8082:1080"
+    environment:
+      - MOCKSERVER_PROPERTY_FILE=/config/mockserver.properties
+      - MOCKSERVER_INITIALIZATION_JSON_PATH=/config/mock-service-2.json
+    volumes:
+      - ./local-dev/mock-services/service-2:/config:ro
+    networks:
+      - api-governance
+    restart: unless-stopped
+
+  # Redis for caching (optional)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - api-governance
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+volumes:
+  api-specs-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+  redis-data:
+    driver: local
+
+networks:
+  api-governance:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
