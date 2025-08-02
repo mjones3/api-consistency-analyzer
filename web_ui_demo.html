@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Governance Platform - Dashboard Demo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .compliance-high { color: #28a745; font-weight: bold; }
+        .compliance-medium { color: #ffc107; font-weight: bold; }
+        .compliance-low { color: #dc3545; font-weight: bold; }
+        .non-compliant { color: #dc3545; font-weight: bold; }
+        .card-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .btn-harvest { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; }
+        .btn-harvest:hover { background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%); }
+        .table-hover tbody tr:hover { background-color: #f8f9fa; }
+        .badge-namespace { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .demo-banner { background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); color: white; padding: 10px; text-align: center; }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="demo-banner">
+        <strong>🎭 DEMO MODE</strong> - This is a demonstration of the API Governance Platform Web UI
+    </div>
+
+    <nav class="navbar navbar-dark" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">
+                <i class="fas fa-shield-alt me-2"></i>
+                API Governance Platform
+            </span>
+            <span class="navbar-text">
+                <i class="fas fa-hospital me-1"></i>
+                Blood Banking Services
+            </span>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="card shadow">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-tachometer-alt me-2"></i>
+                            Service Compliance Dashboard
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Controls Row -->
+                        <div class="row mb-4">
+                            <div class="col-md-3">
+                                <label for="namespaceSelect" class="form-label">
+                                    <i class="fas fa-filter me-1"></i>
+                                    Filter by Namespace:
+                                </label>
+                                <select class="form-select" id="namespaceSelect">
+                                    <option value="all">All Namespaces</option>
+                                    <option value="blood-banking" selected>blood-banking</option>
+                                    <option value="api-governance">api-governance</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Last Updated:</label>
+                                <div class="form-control-plaintext">
+                                    <i class="fas fa-clock me-1"></i>
+                                    <span>2025-08-01 17:20:00</span>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">&nbsp;</label>
+                                <div>
+                                    <button class="btn btn-harvest text-white" onclick="showDemo('harvest')">
+                                        <i class="fas fa-sync-alt me-1"></i>
+                                        Run Harvest Now
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">&nbsp;</label>
+                                <div>
+                                    <button class="btn btn-success" onclick="showDemo('export')">
+                                        <i class="fas fa-download me-1"></i>
+                                        Export Compliance Report
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Services Table -->
+                        <div class="table-responsive">
+                            <table class="table table-hover table-striped">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th><i class="fas fa-layer-group me-1"></i>Namespace</th>
+                                        <th><i class="fas fa-cogs me-1"></i>Service Name</th>
+                                        <th><i class="fas fa-list me-1"></i>Total Attributes</th>
+                                        <th><i class="fas fa-exclamation-triangle me-1"></i>Non-Compliant</th>
+                                        <th><i class="fas fa-percentage me-1"></i>Compliance %</th>
+                                        <th><i class="fas fa-file-code me-1"></i>OpenAPI Spec</th>
+                                        <th><i class="fas fa-lightbulb me-1"></i>Recommendations</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            <span class="badge badge-namespace">blood-banking</span>
+                                        </td>
+                                        <td>
+                                            <strong>legacy-donor-service</strong>
+                                            <br><small class="text-muted">Non-FHIR REST API</small>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">9</span>
+                                        </td>
+                                        <td>
+                                            <span class="non-compliant">8</span>
+                                        </td>
+                                        <td>
+                                            <span class="compliance-low">11.1%</span>
+                                            <div class="progress mt-1" style="height: 4px;">
+                                                <div class="progress-bar bg-danger" style="width: 11.1%"></div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary" onclick="showDemo('swagger')">
+                                                <i class="fas fa-external-link-alt me-1"></i>
+                                                View Spec
+                                            </button>
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-warning" onclick="showRecommendations('legacy-donor-service')">
+                                                <i class="fas fa-lightbulb me-1"></i>
+                                                View Recommendations
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <span class="badge badge-namespace">blood-banking</span>
+                                        </td>
+                                        <td>
+                                            <strong>modern-donor-service</strong>
+                                            <br><small class="text-success">FHIR R4 Compliant</small>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">9</span>
+                                        </td>
+                                        <td>
+                                            <span class="text-success">1</span>
+                                        </td>
+                                        <td>
+                                            <span class="compliance-high">88.9%</span>
+                                            <div class="progress mt-1" style="height: 4px;">
+                                                <div class="progress-bar bg-success" style="width: 88.9%"></div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary" onclick="showDemo('swagger')">
+                                                <i class="fas fa-external-link-alt me-1"></i>
+                                                View Spec
+                                            </button>
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-warning" onclick="showRecommendations('modern-donor-service')">
+                                                <i class="fas fa-lightbulb me-1"></i>
+                                                View Recommendations
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Summary Cards -->
+                        <div class="row mt-4">
+                            <div class="col-md-3">
+                                <div class="card bg-primary text-white">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <h6 class="card-title">Total Services</h6>
+                                                <h3>2</h3>
+                                            </div>
+                                            <div class="align-self-center">
+                                                <i class="fas fa-server fa-2x"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-success text-white">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <h6 class="card-title">Fully Compliant</h6>
+                                                <h3>0</h3>
+                                            </div>
+                                            <div class="align-self-center">
+                                                <i class="fas fa-check-circle fa-2x"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-warning text-white">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <h6 class="card-title">Partially Compliant</h6>
+                                                <h3>1</h3>
+                                            </div>
+                                            <div class="align-self-center">
+                                                <i class="fas fa-exclamation-triangle fa-2x"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-danger text-white">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <h6 class="card-title">Non-Compliant</h6>
+                                                <h3>1</h3>
+                                            </div>
+                                            <div class="align-self-center">
+                                                <i class="fas fa-times-circle fa-2x"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recommendations Modal -->
+    <div class="modal fade" id="recommendationsModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <h5 class="modal-title">
+                        <i class="fas fa-lightbulb me-2"></i>
+                        FHIR Compliance Recommendations: <span id="modalServiceName"></span>
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="recommendationsContent">
+                        <!-- Content will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast for notifications -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="notificationToast" class="toast" role="alert">
+            <div class="toast-header">
+                <i class="fas fa-info-circle text-primary me-2"></i>
+                <strong class="me-auto">Demo Notification</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body" id="toastMessage">
+                <!-- Message will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Demo data for recommendations
+        const recommendationsData = {
+            'legacy-donor-service': [
+                {
+                    field_name: 'resourceType',
+                    current_type: 'missing',
+                    required_type: 'string',
+                    current_required: false,
+                    fhir_required: true,
+                    fhir_compliant_value: '"Patient"',
+                    openapi_line_number: null,
+                    severity: 'error',
+                    issue_description: 'Missing required FHIR field "resourceType"'
+                },
+                {
+                    field_name: 'donorId',
+                    current_type: 'string',
+                    required_type: 'Identifier[]',
+                    current_required: true,
+                    fhir_required: true,
+                    fhir_compliant_value: '[{"value": "D123456"}]',
+                    openapi_line_number: 45,
+                    severity: 'error',
+                    issue_description: 'Non-FHIR field "donorId" should be mapped to FHIR field "identifier"'
+                },
+                {
+                    field_name: 'firstName',
+                    current_type: 'string',
+                    required_type: 'string[]',
+                    current_required: true,
+                    fhir_required: true,
+                    fhir_compliant_value: '["John"]',
+                    openapi_line_number: 52,
+                    severity: 'error',
+                    issue_description: 'Non-FHIR field "firstName" should be mapped to FHIR field "name.given"'
+                },
+                {
+                    field_name: 'lastName',
+                    current_type: 'string',
+                    required_type: 'string',
+                    current_required: true,
+                    fhir_required: true,
+                    fhir_compliant_value: '"Smith"',
+                    openapi_line_number: 58,
+                    severity: 'error',
+                    issue_description: 'Non-FHIR field "lastName" should be mapped to FHIR field "name.family"'
+                },
+                {
+                    field_name: 'phoneNumber',
+                    current_type: 'string',
+                    required_type: 'ContactPoint[]',
+                    current_required: false,
+                    fhir_required: false,
+                    fhir_compliant_value: '[{"system": "phone", "value": "555-1234"}]',
+                    openapi_line_number: 64,
+                    severity: 'warning',
+                    issue_description: 'Non-FHIR field "phoneNumber" should be mapped to FHIR field "telecom"'
+                },
+                {
+                    field_name: 'zip',
+                    current_type: 'integer',
+                    required_type: 'string',
+                    current_required: false,
+                    fhir_required: false,
+                    fhir_compliant_value: '"12345"',
+                    openapi_line_number: 78,
+                    severity: 'warning',
+                    issue_description: 'Non-FHIR field "zip" should be mapped to FHIR field "address.postalCode"'
+                }
+            ],
+            'modern-donor-service': [
+                {
+                    field_name: 'active',
+                    current_type: 'missing',
+                    required_type: 'boolean',
+                    current_required: false,
+                    fhir_required: false,
+                    fhir_compliant_value: 'true',
+                    openapi_line_number: null,
+                    severity: 'warning',
+                    issue_description: 'Optional FHIR field "active" is missing but recommended for Patient resources'
+                }
+            ]
+        };
+
+        function showDemo(action) {
+            let message = '';
+            switch(action) {
+                case 'harvest':
+                    message = '🔄 Harvest triggered! Analyzing 2 services for FHIR compliance...';
+                    break;
+                case 'export':
+                    message = '📄 Compliance report exported successfully!';
+                    break;
+                case 'swagger':
+                    message = '📋 Opening OpenAPI specification in new window...';
+                    break;
+            }
+            showToast(message);
+        }
+
+        function showRecommendations(serviceName) {
+            document.getElementById('modalServiceName').textContent = serviceName;
+            
+            const recommendations = recommendationsData[serviceName] || [];
+            const content = document.getElementById('recommendationsContent');
+            
+            if (recommendations.length === 0) {
+                content.innerHTML = `
+                    <div class="text-center py-5">
+                        <i class="fas fa-check-circle text-success" style="font-size: 4rem;"></i>
+                        <h4 class="mt-3 text-success">Fully FHIR Compliant!</h4>
+                        <p class="text-muted">This service meets all FHIR R4 requirements.</p>
+                    </div>
+                `;
+            } else {
+                content.innerHTML = `
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Field Name</th>
+                                    <th>Current Type</th>
+                                    <th>Required</th>
+                                    <th>FHIR Type</th>
+                                    <th>FHIR Compliant Value</th>
+                                    <th>Line #</th>
+                                    <th>Severity</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${recommendations.map(rec => `
+                                    <tr class="severity-${rec.severity}" style="border-left: 4px solid ${rec.severity === 'error' ? '#dc3545' : '#ffc107'}; background-color: ${rec.severity === 'error' ? '#f8d7da' : '#fff3cd'};">
+                                        <td><code>${rec.field_name}</code></td>
+                                        <td><code>${rec.current_type}</code></td>
+                                        <td><span class="badge ${rec.current_required ? 'bg-success' : 'bg-secondary'}">${rec.current_required ? 'Yes' : 'No'}</span></td>
+                                        <td><code class="text-primary">${rec.required_type}</code></td>
+                                        <td><code style="background-color: #e7f3ff; padding: 2px 6px; border-radius: 3px;">${rec.fhir_compliant_value}</code></td>
+                                        <td>${rec.openapi_line_number ? `<span style="background-color: #fff3cd; padding: 2px 6px; border-radius: 3px;">${rec.openapi_line_number}</span>` : '<span class="text-muted">-</span>'}</td>
+                                        <td><span class="badge ${rec.severity === 'error' ? 'bg-danger' : 'bg-warning'}"><i class="fas ${rec.severity === 'error' ? 'fa-times-circle' : 'fa-exclamation-triangle'} me-1"></i>${rec.severity.charAt(0).toUpperCase() + rec.severity.slice(1)}</span></td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="alert alert-info mt-3">
+                        <i class="fas fa-lightbulb me-2"></i>
+                        <strong>FHIR R4 Reference:</strong> 
+                        For detailed FHIR specifications, visit 
+                        <a href="https://hl7.org/fhir/R4/patient.html" target="_blank">HL7 FHIR R4 Patient Resource</a>
+                    </div>
+                `;
+            }
+            
+            const modal = new bootstrap.Modal(document.getElementById('recommendationsModal'));
+            modal.show();
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('notificationToast');
+            const toastMessage = document.getElementById('toastMessage');
+            
+            toastMessage.textContent = message;
+            
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+        }
+
+        // Show welcome message
+        setTimeout(() => {
+            showToast('🎉 Welcome to the API Governance Platform! This demo shows FHIR compliance analysis for blood banking services.');
+        }, 1000);
+    </script>
+</body>
+</html>

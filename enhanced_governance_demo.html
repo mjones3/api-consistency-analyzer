@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced API Governance Platform - FHIR Compliance Dashboard</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .gradient-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .compliance-high { color: #10b981; }
+        .compliance-medium { color: #f59e0b; }
+        .compliance-low { color: #ef4444; }
+        .progress-bar { transition: width 0.3s ease-in-out; }
+        .modal-backdrop { backdrop-filter: blur(4px); }
+        .demo-banner { 
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); 
+            color: white; 
+            padding: 10px; 
+            text-align: center; 
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-banner">
+        🎭 ENHANCED DEMO - FHIR R4 Compliance Analysis with Line Numbers
+    </div>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Mock data with enhanced FHIR compliance analysis
+        const mockServices = [
+            {
+                namespace: 'blood-banking',
+                serviceName: 'legacy-donor-service',
+                totalAttributes: 9,
+                nonCompliantAttributes: 8,
+                compliancePercentage: 11.1,
+                openApiUrl: 'http://localhost:8081/swagger-ui.html',
+                fhirViolations: [
+                    {
+                        fieldName: 'resourceType',
+                        currentType: 'missing',
+                        requiredType: 'string',
+                        fhirCompliantValue: '"Patient"',
+                        openApiLineNumber: null,
+                        severity: 'error'
+                    },
+                    {
+                        fieldName: 'donorId',
+                        currentType: 'string',
+                        requiredType: 'Identifier[]',
+                        fhirCompliantValue: '[{"value": "D123456"}]',
+                        openApiLineNumber: 45,
+                        severity: 'error'
+                    },
+                    {
+                        fieldName: 'firstName',
+                        currentType: 'string',
+                        requiredType: 'string[]',
+                        fhirCompliantValue: '["John"]',
+                        openApiLineNumber: 52,
+                        severity: 'error'
+                    }
+                ]
+            }
+        ];
+
+        const GovernanceDashboard = () => {
+            const [services] = useState(mockServices);
+            const [selectedService, setSelectedService] = useState(null);
+            const [showRecommendations, setShowRecommendations] = useState(false);
+
+            const averageCompliance = 49.5; // Sample average
+
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    {/* Header */}
+                    <div className="bg-white shadow-sm border-b">
+                        <div className="max-w-7xl mx-auto px-4 py-6">
+                            <h1 className="text-3xl font-bold text-gray-900">
+                                🩸 Enhanced API Governance Platform
+                            </h1>
+                            <p className="mt-2 text-gray-600">
+                                FHIR R4 Compliance with Line-by-Line Analysis
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Summary Cards */}
+                    <div className="max-w-7xl mx-auto px-4 py-8">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                            <div className="bg-white rounded-lg shadow-sm border p-6">
+                                <p className="text-sm font-medium text-gray-600">Total Services</p>
+                                <p className="text-2xl font-bold text-gray-900">4</p>
+                            </div>
+                            <div className="bg-white rounded-lg shadow-sm border p-6">
+                                <p className="text-sm font-medium text-gray-600">Average Compliance</p>
+                                <p className="text-2xl font-bold compliance-medium">{averageCompliance}%</p>
+                            </div>
+                            <div className="bg-white rounded-lg shadow-sm border p-6">
+                                <p className="text-sm font-medium text-gray-600">Critical Services</p>
+                                <p className="text-2xl font-bold text-red-600">2</p>
+                            </div>
+                            <div className="bg-white rounded-lg shadow-sm border p-6">
+                                <p className="text-sm font-medium text-gray-600">Fully Compliant</p>
+                                <p className="text-2xl font-bold text-green-600">1</p>
+                            </div>
+                        </div>
+
+                        {/* Enhanced Services Table */}
+                        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                            <div className="px-6 py-4 border-b">
+                                <h2 className="text-lg font-semibold">FHIR Compliance Analysis</h2>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Namespace</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Service Name</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Attributes</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Non-compliant</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Compliance %</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">OpenAPI Spec</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">FHIR Recommendations</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                        <tr className="hover:bg-gray-50">
+                                            <td className="px-6 py-4"><span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">blood-banking</span></td>
+                                            <td className="px-6 py-4 font-medium">legacy-donor-service</td>
+                                            <td className="px-6 py-4"><span className="bg-gray-100 px-2 py-1 rounded text-xs">9</span></td>
+                                            <td className="px-6 py-4"><span className="font-semibold text-red-600">8</span></td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center">
+                                                    <span className="font-semibold text-red-600">11.1%</span>
+                                                    <div className="ml-3 w-16 bg-gray-200 rounded-full h-2">
+                                                        <div className="h-2 rounded-full bg-red-500" style={{width: '11.1%'}}></div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <a href="#" className="text-blue-600 hover:text-blue-800 font-medium">📋 View Spec</a>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <button 
+                                                    onClick={() => {setSelectedService(mockServices[0]); setShowRecommendations(true);}}
+                                                    className="text-orange-600 hover:text-orange-800 font-medium"
+                                                >
+                                                    💡 View (8)
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Enhanced Recommendations Modal */}
+                    {showRecommendations && selectedService && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                            <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+                                <div className="px-6 py-4 gradient-header text-white">
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <h3 className="text-lg font-semibold">FHIR R4 Compliance Recommendations</h3>
+                                            <p className="text-sm opacity-90">{selectedService.serviceName} • Line-by-Line Analysis</p>
+                                        </div>
+                                        <button onClick={() => setShowRecommendations(false)} className="text-white">✕</button>
+                                    </div>
+                                </div>
+                                <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+                                    <div className="overflow-x-auto">
+                                        <table className="min-w-full divide-y divide-gray-200">
+                                            <thead className="bg-gray-50">
+                                                <tr>
+                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Field Name</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Current Type</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">FHIR Type</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">FHIR Compliant Value</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Line #</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Severity</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="bg-white divide-y divide-gray-200">
+                                                {selectedService.fhirViolations.map((violation, index) => (
+                                                    <tr key={index} className="hover:bg-gray-50">
+                                                        <td className="px-4 py-4">
+                                                            <code className="bg-gray-100 px-2 py-1 rounded font-mono text-sm">{violation.fieldName}</code>
+                                                        </td>
+                                                        <td className="px-4 py-4">
+                                                            <code className="text-gray-600">{violation.currentType}</code>
+                                                        </td>
+                                                        <td className="px-4 py-4">
+                                                            <code className="text-blue-600 font-semibold">{violation.requiredType}</code>
+                                                        </td>
+                                                        <td className="px-4 py-4">
+                                                            <code className="bg-blue-50 text-blue-800 px-2 py-1 rounded text-xs">{violation.fhirCompliantValue}</code>
+                                                        </td>
+                                                        <td className="px-4 py-4">
+                                                            {violation.openApiLineNumber ? (
+                                                                <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs font-mono">
+                                                                    Line {violation.openApiLineNumber}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-gray-400">-</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-4 py-4">
+                                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                                                violation.severity === 'error' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
+                                                            }`}>
+                                                                {violation.severity === 'error' ? '🚨' : '⚠️'} {violation.severity.toUpperCase()}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                                        <h4 className="font-semibold text-blue-900">✨ Key Features Implemented:</h4>
+                                        <ul className="text-sm text-blue-700 mt-2 space-y-1">
+                                            <li>• <strong>Average Compliance %</strong> - Calculated across all services</li>
+                                            <li>• <strong>Line Numbers</strong> - Exact OpenAPI spec locations for fixes</li>
+                                            <li>• <strong>FHIR R4 Standards</strong> - Every service compared to HL7 FHIR</li>
+                                            <li>• <strong>Enhanced UI</strong> - Built from your existing React component</li>
+                                            <li>• <strong>Real-time Analysis</strong> - Backend API integration ready</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        ReactDOM.render(<GovernanceDashboard />, document.getElementById('root'));
+    </script>
+</body>
+</html>

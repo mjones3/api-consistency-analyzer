@@ -5,6 +5,7 @@ from typing import Dict, List, Optional
 
 import structlog
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 logger = structlog.get_logger()
@@ -354,5 +355,193 @@ def create_api_router(platform) -> APIRouter:
         except Exception as e:
             logger.error("Failed to get namespaces", error=str(e))
             raise HTTPException(status_code=500, detail="Failed to retrieve namespaces")
+    
+    @router.get("/dashboard", response_class=HTMLResponse)
+    async def web_ui():
+        """Simple web UI for the API Governance Platform."""
+        html_content = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Governance Platform - FHIR Compliance Dashboard</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .gradient-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .compliance-high { color: #10b981; }
+        .compliance-medium { color: #f59e0b; }
+        .compliance-low { color: #ef4444; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const GovernanceDashboard = () => {
+            const [services, setServices] = useState([]);
+            const [isLoading, setIsLoading] = useState(true);
+            const [lastUpdated, setLastUpdated] = useState(null);
+
+            // Mock data for demonstration
+            const mockServices = [
+                {
+                    namespace: 'blood-banking',
+                    serviceName: 'legacy-donor-service',
+                    totalAttributes: 9,
+                    nonCompliantAttributes: 8,
+                    compliancePercentage: 11.1,
+                    openApiUrl: 'http://localhost:8081/swagger-ui.html'
+                },
+                {
+                    namespace: 'blood-banking',
+                    serviceName: 'modern-donor-service',
+                    totalAttributes: 9,
+                    nonCompliantAttributes: 1,
+                    compliancePercentage: 88.9,
+                    openApiUrl: 'http://localhost:8082/swagger-ui.html'
+                }
+            ];
+
+            useEffect(() => {
+                setTimeout(() => {
+                    setServices(mockServices);
+                    setLastUpdated(new Date().toISOString());
+                    setIsLoading(false);
+                }, 1000);
+            }, []);
+
+            const averageCompliance = services.length > 0 
+                ? Math.round(services.reduce((sum, service) => sum + service.compliancePercentage, 0) / services.length)
+                : 0;
+
+            if (isLoading) {
+                return (
+                    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                        <div className="text-center">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p className="text-gray-600">Loading FHIR compliance dashboard...</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    <div className="bg-white shadow-sm border-b">
+                        <div className="max-w-7xl mx-auto px-4 py-6">
+                            <h1 className="text-3xl font-bold text-gray-900">
+                                🩸 API Governance Platform
+                            </h1>
+                            <p className="mt-2 text-gray-600">
+                                FHIR R4 Compliance Monitoring for Blood Banking Microservices
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="max-w-7xl mx-auto px-4 py-8">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                            <div className="bg-white rounded-lg shadow-sm border p-6">
+                                <p className="text-sm font-medium text-gray-600">Total Services</p>
+                                <p className="text-2xl font-bold text-gray-900">{services.length}</p>
+                            </div>
+                            <div className="bg-white rounded-lg shadow-sm border p-6">
+                                <p className="text-sm font-medium text-gray-600">Average Compliance</p>
+                                <p className={`text-2xl font-bold ${averageCompliance >= 70 ? 'compliance-high' : averageCompliance >= 50 ? 'compliance-medium' : 'compliance-low'}`}>
+                                    {averageCompliance}%
+                                </p>
+                            </div>
+                            <div className="bg-white rounded-lg shadow-sm border p-6">
+                                <p className="text-sm font-medium text-gray-600">Critical Services</p>
+                                <p className="text-2xl font-bold text-red-600">
+                                    {services.filter(s => s.compliancePercentage < 70).length}
+                                </p>
+                            </div>
+                            <div className="bg-white rounded-lg shadow-sm border p-6">
+                                <p className="text-sm font-medium text-gray-600">Fully Compliant</p>
+                                <p className="text-2xl font-bold text-green-600">
+                                    {services.filter(s => s.compliancePercentage >= 90).length}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                            <div className="px-6 py-4 border-b">
+                                <h2 className="text-lg font-semibold">FHIR Compliance Analysis</h2>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Namespace</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Service Name</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Attributes</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Non-compliant</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Compliance %</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">OpenAPI Spec</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                        {services.map((service, index) => (
+                                            <tr key={index} className="hover:bg-gray-50">
+                                                <td className="px-6 py-4">
+                                                    <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
+                                                        {service.namespace}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 font-medium">{service.serviceName}</td>
+                                                <td className="px-6 py-4">
+                                                    <span className="bg-gray-100 px-2 py-1 rounded text-xs">
+                                                        {service.totalAttributes}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`font-semibold ${service.nonCompliantAttributes > 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                                                        {service.nonCompliantAttributes}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center">
+                                                        <span className={`font-semibold ${service.compliancePercentage >= 70 ? 'compliance-high' : service.compliancePercentage >= 50 ? 'compliance-medium' : 'compliance-low'}`}>
+                                                            {service.compliancePercentage}%
+                                                        </span>
+                                                        <div className="ml-3 w-16 bg-gray-200 rounded-full h-2">
+                                                            <div 
+                                                                className={`h-2 rounded-full ${service.compliancePercentage >= 70 ? 'bg-green-500' : service.compliancePercentage >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                                                                style={{width: `${service.compliancePercentage}%`}}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <a href={service.openApiUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 font-medium">
+                                                        📋 View Spec
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div className="mt-8 text-center text-sm text-gray-500">
+                            <p>API Governance Platform • FHIR R4 Compliance Analysis • Last updated: {lastUpdated ? new Date(lastUpdated).toLocaleString() : 'Never'}</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<GovernanceDashboard />, document.getElementById('root'));
+    </script>
+</body>
+</html>
+        """
+        return HTMLResponse(content=html_content)
     
     return router

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenAPI Specification - {{ service_name }}</title>
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui.css" />
+    <style>
+        .swagger-ui .topbar { display: none; }
+        .custom-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .custom-header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+        .custom-header .back-link {
+            color: white;
+            text-decoration: none;
+            opacity: 0.8;
+        }
+        .custom-header .back-link:hover {
+            opacity: 1;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="custom-header">
+        <div class="container-fluid">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1>
+                        <i class="fas fa-file-code me-2"></i>
+                        OpenAPI Specification: {{ service_name }}
+                    </h1>
+                    <small>Interactive API Documentation</small>
+                </div>
+                <div>
+                    <a href="/" class="back-link">
+                        <i class="fas fa-arrow-left me-1"></i>
+                        Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="swagger-ui"></div>
+
+    <script src="https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui-bundle.js"></script>
+    <script src="https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui-standalone-preset.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+    <script>
+        window.onload = function() {
+            SwaggerUIBundle({
+                url: '{{ openapi_url }}',
+                dom_id: '#swagger-ui',
+                deepLinking: true,
+                presets: [
+                    SwaggerUIBundle.presets.apis,
+                    SwaggerUIStandalonePreset
+                ],
+                plugins: [
+                    SwaggerUIBundle.plugins.DownloadUrl
+                ],
+                layout: "StandaloneLayout",
+                tryItOutEnabled: true,
+                requestInterceptor: function(request) {
+                    // Add any custom headers or modifications here
+                    return request;
+                },
+                responseInterceptor: function(response) {
+                    // Handle responses here
+                    return response;
+                }
+            });
+        };
+    </script>
+</body>
+</html>

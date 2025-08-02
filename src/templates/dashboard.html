@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Governance Platform - Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .compliance-high { color: #28a745; font-weight: bold; }
+        .compliance-medium { color: #ffc107; font-weight: bold; }
+        .compliance-low { color: #dc3545; font-weight: bold; }
+        .non-compliant { color: #dc3545; font-weight: bold; }
+        .loading { opacity: 0.6; }
+        .card-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .btn-harvest { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; }
+        .btn-harvest:hover { background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%); }
+        .table-hover tbody tr:hover { background-color: #f8f9fa; }
+        .badge-namespace { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    </style>
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-dark" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">
+                <i class="fas fa-shield-alt me-2"></i>
+                API Governance Platform
+            </span>
+            <span class="navbar-text">
+                <i class="fas fa-hospital me-1"></i>
+                Blood Banking Services
+            </span>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="card shadow">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-tachometer-alt me-2"></i>
+                            Service Compliance Dashboard
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Controls Row -->
+                        <div class="row mb-4">
+                            <div class="col-md-3">
+                                <label for="namespaceSelect" class="form-label">
+                                    <i class="fas fa-filter me-1"></i>
+                                    Filter by Namespace:
+                                </label>
+                                <select class="form-select" id="namespaceSelect">
+                                    <option value="all">All Namespaces</option>
+                                    {% for namespace in namespaces %}
+                                    <option value="{{ namespace }}">{{ namespace }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Last Updated:</label>
+                                <div class="form-control-plaintext" id="lastUpdated">
+                                    <i class="fas fa-clock me-1"></i>
+                                    <span id="lastUpdatedTime">{{ last_harvest }}</span>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">&nbsp;</label>
+                                <div>
+                                    <button class="btn btn-harvest text-white" id="harvestBtn">
+                                        <i class="fas fa-sync-alt me-1"></i>
+                                        Run Harvest Now
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">&nbsp;</label>
+                                <div>
+                                    <button class="btn btn-success" id="exportBtn">
+                                        <i class="fas fa-download me-1"></i>
+                                        Export Compliance Report
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Services Table -->
+                        <div class="table-responsive">
+                            <table class="table table-hover table-striped" id="servicesTable">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th><i class="fas fa-layer-group me-1"></i>Namespace</th>
+                                        <th><i class="fas fa-cogs me-1"></i>Service Name</th>
+                                        <th><i class="fas fa-list me-1"></i>Total Attributes</th>
+                                        <th><i class="fas fa-exclamation-triangle me-1"></i>Non-Compliant</th>
+                                        <th><i class="fas fa-percentage me-1"></i>Compliance %</th>
+                                        <th><i class="fas fa-file-code me-1"></i>OpenAPI Spec</th>
+                                        <th><i class="fas fa-lightbulb me-1"></i>Recommendations</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="servicesTableBody">
+                                    <tr>
+                                        <td colspan="7" class="text-center">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                            <div class="mt-2">Loading services...</div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Summary Cards -->
+                        <div class="row mt-4" id="summaryCards" style="display: none;">
+                            <div class="col-md-3">
+                                <div class="card bg-primary text-white">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <h6 class="card-title">Total Services</h6>
+                                                <h3 id="totalServices">0</h3>
+                                            </div>
+                                            <div class="align-self-center">
+                                                <i class="fas fa-server fa-2x"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-success text-white">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <h6 class="card-title">Fully Compliant</h6>
+                                                <h3 id="fullyCompliant">0</h3>
+                                            </div>
+                                            <div class="align-self-center">
+                                                <i class="fas fa-check-circle fa-2x"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-warning text-white">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <h6 class="card-title">Partially Compliant</h6>
+                                                <h3 id="partiallyCompliant">0</h3>
+                                            </div>
+                                            <div class="align-self-center">
+                                                <i class="fas fa-exclamation-triangle fa-2x"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-danger text-white">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <h6 class="card-title">Non-Compliant</h6>
+                                                <h3 id="nonCompliant">0</h3>
+                                            </div>
+                                            <div class="align-self-center">
+                                                <i class="fas fa-times-circle fa-2x"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast for notifications -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="notificationToast" class="toast" role="alert">
+            <div class="toast-header">
+                <i class="fas fa-info-circle text-primary me-2"></i>
+                <strong class="me-auto">Notification</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body" id="toastMessage">
+                <!-- Message will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentServices = [];
+
+        // Load services data
+        async function loadServices() {
+            const namespace = document.getElementById('namespaceSelect').value;
+            
+            try {
+                const response = await fetch(`/api/services${namespace !== 'all' ? `?namespace=${namespace}` : ''}`);
+                const data = await response.json();
+                
+                currentServices = data.services;
+                updateTable(data.services);
+                updateSummary(data.services);
+                updateLastUpdated(data.last_updated);
+                
+            } catch (error) {
+                console.error('Failed to load services:', error);
+                showToast('Failed to load services', 'error');
+            }
+        }
+
+        // Update services table
+        function updateTable(services) {
+            const tbody = document.getElementById('servicesTableBody');
+            
+            if (services.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">
+                            <i class="fas fa-search me-2"></i>
+                            No services found for the selected namespace
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = services.map(service => `
+                <tr>
+                    <td>
+                        <span class="badge badge-namespace">${service.namespace}</span>
+                    </td>
+                    <td>
+                        <strong>${service.service_name}</strong>
+                        ${service.error ? `<br><small class="text-danger"><i class="fas fa-exclamation-triangle"></i> ${service.error}</small>` : ''}
+                    </td>
+                    <td>
+                        <span class="badge bg-info">${service.total_attributes}</span>
+                    </td>
+                    <td>
+                        <span class="non-compliant">${service.non_compliant_attributes}</span>
+                    </td>
+                    <td>
+                        <span class="${getComplianceClass(service.compliance_percentage)}">
+                            ${service.compliance_percentage}%
+                        </span>
+                        <div class="progress mt-1" style="height: 4px;">
+                            <div class="progress-bar ${getProgressBarClass(service.compliance_percentage)}" 
+                                 style="width: ${service.compliance_percentage}%"></div>
+                        </div>
+                    </td>
+                    <td>
+                        <a href="${service.swagger_ui_url}" target="_blank" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-external-link-alt me-1"></i>
+                            View Spec
+                        </a>
+                    </td>
+                    <td>
+                        <a href="${service.recommendations_url}" class="btn btn-sm btn-outline-warning">
+                            <i class="fas fa-lightbulb me-1"></i>
+                            View Recommendations
+                        </a>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Update summary cards
+        function updateSummary(services) {
+            const total = services.length;
+            const fullyCompliant = services.filter(s => s.compliance_percentage === 100).length;
+            const partiallyCompliant = services.filter(s => s.compliance_percentage > 0 && s.compliance_percentage < 100).length;
+            const nonCompliant = services.filter(s => s.compliance_percentage === 0).length;
+
+            document.getElementById('totalServices').textContent = total;
+            document.getElementById('fullyCompliant').textContent = fullyCompliant;
+            document.getElementById('partiallyCompliant').textContent = partiallyCompliant;
+            document.getElementById('nonCompliant').textContent = nonCompliant;
+            
+            document.getElementById('summaryCards').style.display = 'block';
+        }
+
+        // Update last updated time
+        function updateLastUpdated(timestamp) {
+            const date = new Date(timestamp);
+            document.getElementById('lastUpdatedTime').textContent = date.toLocaleString();
+        }
+
+        // Get compliance CSS class
+        function getComplianceClass(percentage) {
+            if (percentage >= 80) return 'compliance-high';
+            if (percentage >= 50) return 'compliance-medium';
+            return 'compliance-low';
+        }
+
+        // Get progress bar CSS class
+        function getProgressBarClass(percentage) {
+            if (percentage >= 80) return 'bg-success';
+            if (percentage >= 50) return 'bg-warning';
+            return 'bg-danger';
+        }
+
+        // Show toast notification
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('notificationToast');
+            const toastMessage = document.getElementById('toastMessage');
+            
+            toastMessage.textContent = message;
+            
+            // Update toast style based on type
+            toast.className = `toast ${type === 'error' ? 'bg-danger text-white' : ''}`;
+            
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+        }
+
+        // Trigger harvest
+        async function triggerHarvest() {
+            const btn = document.getElementById('harvestBtn');
+            const originalText = btn.innerHTML;
+            
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Running Harvest...';
+            btn.disabled = true;
+            
+            try {
+                const response = await fetch('/api/harvest', { method: 'POST' });
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showToast(`Harvest completed! Analyzed ${result.services_analyzed} services.`);
+                    await loadServices(); // Reload data
+                } else {
+                    showToast('Harvest failed: ' + result.detail, 'error');
+                }
+            } catch (error) {
+                console.error('Harvest failed:', error);
+                showToast('Harvest failed: ' + error.message, 'error');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        // Export compliance report
+        async function exportReport() {
+            const namespace = document.getElementById('namespaceSelect').value;
+            
+            try {
+                const response = await fetch(`/api/export/compliance${namespace !== 'all' ? `?namespace=${namespace}` : ''}`);
+                const data = await response.json();
+                
+                // Create and download file
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `compliance-report-${namespace}-${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                showToast('Compliance report exported successfully!');
+            } catch (error) {
+                console.error('Export failed:', error);
+                showToast('Export failed: ' + error.message, 'error');
+            }
+        }
+
+        // Event listeners
+        document.getElementById('namespaceSelect').addEventListener('change', loadServices);
+        document.getElementById('harvestBtn').addEventListener('click', triggerHarvest);
+        document.getElementById('exportBtn').addEventListener('click', exportReport);
+
+        // Initial load
+        loadServices();
+
+        // Auto-refresh every 30 seconds
+        setInterval(loadServices, 30000);
+    </script>
+</body>
+</html>

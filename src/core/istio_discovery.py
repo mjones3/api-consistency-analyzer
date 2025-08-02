@@ -115,22 +115,44 @@ class IstioServiceDiscovery:
     
     def _load_config(self):
         """Load Kubernetes configuration."""
-        try:
-            if self.config_path:
-                config.load_kube_config(config_file=self.config_path)
-            else:
-                # Try in-cluster config first, then local config
-                try:
-                    config.load_incluster_config()
-                except config.ConfigException:
-                    config.load_kube_config()
-            
-            self.k8s_client = client.ApiClient()
-            logger.info("Kubernetes configuration loaded successfully")
-            
-        except Exception as e:
-            logger.error("Failed to load Kubernetes configuration", error=str(e))
-            raise
+        # Check if running in development mode without Kubernetes
+        environment = os.getenv("ENVIRONMENT", "development").lower()
+        if environment in ["development", "dev", "local"]:
+            try:
+                if self.config_path:
+                    config.load_kube_config(config_file=self.config_path)
+                else:
+                    # Try in-cluster config first, then local config
+                    try:
+                        config.load_incluster_config()
+                    except config.ConfigException:
+                        config.load_kube_config()
+                
+                self.k8s_client = client.ApiClient()
+                logger.info("Kubernetes configuration loaded successfully")
+                
+            except Exception as e:
+                logger.warning("Kubernetes not available in development mode, using mock discovery", error=str(e))
+                self.k8s_client = None
+                return
+        else:
+            # Production mode - Kubernetes is required
+            try:
+                if self.config_path:
+                    config.load_kube_config(config_file=self.config_path)
+                else:
+                    # Try in-cluster config first, then local config
+                    try:
+                        config.load_incluster_config()
+                    except config.ConfigException:
+                        config.load_kube_config()
+                
+                self.k8s_client = client.ApiClient()
+                logger.info("Kubernetes configuration loaded successfully")
+                
+            except Exception as e:
+                logger.error("Failed to load Kubernetes configuration", error=str(e))
+                raise
     
     def _create_discovery_config(self) -> DiscoveryConfig:
         """Create discovery configuration from environment variables."""
@@ -152,6 +174,11 @@ class IstioServiceDiscovery:
     async def discover_services(self) -> List[ServiceInfo]:
         """Discover all services in configured namespaces."""
         logger.info("Starting service discovery", namespaces=self.discovery_config.namespaces)
+        
+        # If Kubernetes is not available (development mode), return mock services
+        if self.k8s_client is None:
+            logger.info("Using mock service discovery (Kubernetes not available)")
+            return self._get_mock_services()
         
         all_services = []
         
@@ -315,3 +342,30 @@ class IstioServiceDiscovery:
             "gateways": [],
             "authorization_policies": []
         }
+    
+    def _get_mock_services(self) -> List[ServiceInfo]:
+        """Return mock services for development mode when Kubernetes is not available."""
+        return [
+            ServiceInfo(
+                name="legacy-donor-service",
+                namespace="blood-banking",
+                labels={"app": "legacy-donor-service", "version": "v1"},
+                annotations={"sidecar.istio.io/inject": "true"},
+                endpoints=["http://legacy-donor-service:8081"],
+                health_endpoint="http://legacy-donor-service:8081/actuator/health",
+                openapi_endpoint="http://legacy-donor-service:8081/v3/api-docs",
+                istio_sidecar=True,
+                service_version="v1"
+            ),
+            ServiceInfo(
+                name="modern-donor-service",
+                namespace="blood-banking",
+                labels={"app": "modern-donor-service", "version": "v2"},
+                annotations={"sidecar.istio.io/inject": "true"},
+                endpoints=["http://modern-donor-service:8082"],
+                health_endpoint="http://modern-donor-service:8082/actuator/health",
+                openapi_endpoint="http://modern-donor-service:8082/v3/api-docs",
+                istio_sidecar=True,
+                service_version="v2"
+            )
+        ]
