@@ -26,10 +26,10 @@ A comprehensive microservices API governance platform that automatically discove
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Kubernetes cluster (v1.28+) with Istio 1.24+ installed
-- kubectl configured
-- Helm 3.x
+- Kubernetes cluster (v1.28+) with Istio 1.19+ installed
+- kubectl configured and cluster accessible
 - Docker (for local development)
+- curl (for testing endpoints)
 
 ### Kubernetes Deployment (Recommended)
 
@@ -44,19 +44,20 @@ cd microservices-api-governance
 ./scripts/setup-istio-stable.sh
 ```
 
-3. **Deploy everything to Kubernetes**
+3. **Build and deploy everything to Kubernetes**
 ```bash
+./scripts/build-services.sh
 ./scripts/deploy-kubernetes.sh
 ```
 
-4. **Access services**
+4. **Access services with enhanced monitoring**
 ```bash
 ./port-forward-k8s.sh
 ```
 
-5. **View analysis results**
+5. **Quick access to all dashboards**
 ```bash
-./scripts/view-analysis-results.sh
+./local_access_guide.sh
 ```
 
 ### Local Development (Alternative)
@@ -103,6 +104,50 @@ kubectl port-forward svc/api-governance 8080:80
 - **🚀 Production Ready**: Kubernetes deployment with Helm charts
 - **🛠️ Local Development**: Complete local development stack with Docker Compose
 
+## 📊 Monitoring & Observability
+
+### Service Mesh Visualization with Kiali
+Access the Kiali dashboard at http://localhost:20001/kiali/ to:
+- **Service Graph**: Visualize service-to-service communication
+- **Traffic Flow**: Monitor request rates, response times, and error rates
+- **Configuration**: Validate Istio configuration (VirtualServices, DestinationRules)
+- **Distributed Tracing**: View request traces across services
+- **Security**: Monitor mTLS status and security policies
+
+### Metrics & Dashboards with Grafana
+Access Grafana at http://localhost:3000/ (admin/admin) for:
+- **Istio Service Dashboard**: Service-level metrics and SLIs
+- **Istio Mesh Dashboard**: Overall mesh health and performance
+- **API Governance Metrics**: Custom dashboards for governance platform
+- **Spring Boot Dashboards**: Application-specific metrics
+
+### Raw Metrics with Prometheus
+Access Prometheus at http://localhost:9090/ for:
+- **Service Discovery**: Auto-discovered targets
+- **Custom Queries**: PromQL queries for specific metrics
+- **Alerting Rules**: Configure alerts for SLA violations
+- **Federation**: Aggregate metrics from multiple clusters
+
+### Key Metrics to Monitor
+```promql
+# API Governance Platform Metrics
+api_governance_services_discovered_total
+api_governance_harvest_duration_seconds
+api_governance_fhir_compliance_score
+api_governance_consistency_issues_total
+
+# Istio Service Mesh Metrics
+istio_requests_total
+istio_request_duration_milliseconds
+istio_tcp_connections_opened_total
+istio_tcp_connections_closed_total
+
+# Spring Boot Application Metrics
+http_server_requests_seconds_count
+jvm_memory_used_bytes
+jvm_gc_pause_seconds
+```
+
 ## 🔧 Configuration
 
 ### Environment Variables
@@ -111,10 +156,11 @@ kubectl port-forward svc/api-governance 8080:80
 |----------|---------|-------------|
 | `HARVEST_INTERVAL_HOURS` | `6` | Hours between harvest cycles |
 | `MAX_CONCURRENT_REQUESTS` | `10` | Maximum concurrent API requests |
-| `KUBERNETES_NAMESPACES` | `default` | Comma-separated list of namespaces to scan |
+| `KUBERNETES_NAMESPACES` | `default,api-governance` | Comma-separated list of namespaces to scan |
 | `FHIR_COMPLIANCE_MODE` | `true` | Enable FHIR compliance checking |
-| `LOG_LEVEL` | `INFO` | Logging level |
+| `LOG_LEVEL` | `INFO` | Logging level (DEBUG, INFO, WARNING, ERROR) |
 | `METRICS_ENABLED` | `true` | Enable Prometheus metrics |
+| `ENVIRONMENT` | `kubernetes` | Environment mode (development, kubernetes, production) |
 
 ### ConfigMap Configuration
 
@@ -137,18 +183,92 @@ data:
       mappings_file: /config/fhir-mappings.yaml
 ```
 
-## 📚 API Reference
+## 📚 API Reference & Endpoints
 
-### Health Endpoints
-- `GET /health` - Health check
-- `GET /ready` - Readiness probe
-- `GET /metrics` - Prometheus metrics
+### 🚀 API Governance Platform Endpoints
+| Endpoint | Method | Description | Example |
+|----------|--------|-------------|---------|
+| `/` | GET | Main FHIR Compliance Dashboard | http://localhost:8080/ |
+| `/health/` | GET | Health check | http://localhost:8080/health/ |
+| `/api/v1/discovered-services` | GET | List discovered services | http://localhost:8080/api/v1/discovered-services |
+| `/api/v1/reports/latest` | GET | Latest consistency report | http://localhost:8080/api/v1/reports/latest |
+| `/api/v1/fhir/recommendations` | GET | FHIR compliance recommendations | http://localhost:8080/api/v1/fhir/recommendations |
+| `/api/v1/harvest/trigger` | POST | Trigger manual analysis | `curl -X POST http://localhost:8080/api/v1/harvest/trigger` |
+| `/metrics` | GET | Prometheus metrics | http://localhost:8090/metrics |
 
-### Data Endpoints
-- `GET /discovered-services` - List discovered services
-- `GET /reports/latest` - Latest consistency report
-- `GET /reports/{report_id}` - Specific report
-- `POST /harvest/trigger` - Trigger manual harvest
+### 🩸 Blood Banking Services
+| Service | Endpoint | Description | Example |
+|---------|----------|-------------|---------|
+| Legacy Donor Service | `/swagger-ui.html` | OpenAPI documentation | http://localhost:8081/swagger-ui.html |
+| Legacy Donor Service | `/actuator/health` | Spring Boot health | http://localhost:8081/actuator/health |
+| Modern Donor Service | `/swagger-ui.html` | OpenAPI documentation | http://localhost:8082/swagger-ui.html |
+| Modern Donor Service | `/actuator/health` | Spring Boot health | http://localhost:8082/actuator/health |
+
+### 🔍 Istio Service Mesh Monitoring
+| Dashboard | URL | Description | Features |
+|-----------|-----|-------------|----------|
+| **Kiali** | http://localhost:20001/kiali/ | Service mesh topology | Service graph, traffic flow, configuration validation |
+| **Grafana** | http://localhost:3000/ | Metrics dashboards | Performance metrics, service health, custom dashboards |
+| **Prometheus** | http://localhost:9090/ | Metrics collection | Raw metrics, queries, alerting rules |
+| **Istio Gateway** | http://localhost:15021/ | Gateway status | Ingress gateway health and configuration |
+
+### 🔧 Useful Commands
+```bash
+# Check all pods across namespaces
+kubectl get pods -A
+
+# View API Governance logs
+kubectl logs -f deployment/api-governance -n api-governance
+
+# Check Istio configuration
+kubectl get virtualservices,destinationrules -A
+
+# Service mesh proxy status
+istioctl proxy-status
+
+# Trigger manual analysis
+curl -X POST http://localhost:8080/api/v1/harvest/trigger \
+  -H "Content-Type: application/json" \
+  -d '{"force": true}'
+
+# Check service mesh traffic
+kubectl exec -n istio-system deployment/kiali -- curl -s http://localhost:20001/kiali/api/namespaces/graph
+```
+
+## 🛠️ Scripts & Automation
+
+### Build Scripts
+```bash
+# Build all Docker images and load into Kind cluster
+./scripts/build-services.sh
+
+# Build specific service
+docker build -t api-governance:latest .
+docker build -t legacy-donor-service:latest ./examples/mock-services/legacy-donor-service/
+```
+
+### Deployment Scripts
+```bash
+# Full Kubernetes deployment with Istio
+./scripts/deploy-kubernetes.sh
+
+# Port forwarding for local access
+./port-forward-k8s.sh
+
+# Enhanced local access guide
+./local_access_guide.sh
+```
+
+### Monitoring Scripts
+```bash
+# Quick dashboard access
+./dashboard-access.sh
+
+# Check system status
+kubectl get pods -A
+kubectl get svc -A
+istioctl proxy-status
+```
 
 ## 🧪 Testing
 
@@ -161,6 +281,103 @@ python -m pytest tests/integration/ -v
 
 # Run with coverage
 python -m pytest --cov=src tests/
+
+# Test API endpoints
+curl -s http://localhost:8080/health/ | jq
+curl -s http://localhost:8080/api/v1/discovered-services | jq
+curl -s http://localhost:8080/api/v1/reports/latest | jq
+```
+
+## 🔍 Troubleshooting
+
+### Common Issues
+
+#### 1. API Governance Pod Not Starting
+```bash
+# Check pod status
+kubectl get pods -n api-governance
+kubectl describe pod -n api-governance -l app=api-governance
+
+# Check logs
+kubectl logs -f deployment/api-governance -n api-governance
+
+# Common fixes
+kubectl delete pod -n api-governance -l app=api-governance  # Restart pod
+kubectl rollout restart deployment/api-governance -n api-governance
+```
+
+#### 2. Services Not Discovered
+```bash
+# Check if services are running
+kubectl get pods -n blood-banking
+kubectl get svc -n blood-banking
+
+# Check Istio sidecar injection
+kubectl get pods -n blood-banking -o jsonpath='{.items[*].spec.containers[*].name}'
+
+# Verify service mesh configuration
+istioctl proxy-config cluster -n blood-banking deployment/legacy-donor-service
+```
+
+#### 3. Port Forward Issues
+```bash
+# Kill existing port forwards
+pkill -f "kubectl.*port-forward"
+
+# Check if ports are in use
+lsof -i :8080
+lsof -i :20001
+
+# Restart port forwarding
+./port-forward-k8s.sh
+```
+
+#### 4. Istio Dashboard Not Accessible
+```bash
+# Check Istio installation
+kubectl get pods -n istio-system
+kubectl get svc -n istio-system
+
+# Verify Kiali installation
+kubectl get svc kiali -n istio-system
+kubectl port-forward svc/kiali 20001:20001 -n istio-system
+
+# Check Grafana
+kubectl get svc grafana -n istio-system
+kubectl port-forward svc/grafana 3000:3000 -n istio-system
+```
+
+#### 5. FHIR Compliance Analysis Not Working
+```bash
+# Check if services are accessible
+kubectl exec -n api-governance deployment/api-governance -- \
+  curl -s http://legacy-donor-service.blood-banking.svc.cluster.local:8081/actuator/health
+
+# Trigger manual analysis
+curl -X POST http://localhost:8080/api/v1/harvest/trigger \
+  -H "Content-Type: application/json" \
+  -d '{"force": true}'
+
+# Check analysis logs
+kubectl logs -f deployment/api-governance -n api-governance | grep -i fhir
+```
+
+### Debug Commands
+```bash
+# Check all resources
+kubectl get all -A
+
+# Describe problematic resources
+kubectl describe deployment api-governance -n api-governance
+kubectl describe svc api-governance -n api-governance
+
+# Check Istio configuration
+kubectl get virtualservices,destinationrules,gateways -A
+istioctl analyze -A
+
+# Network connectivity test
+kubectl run debug --image=curlimages/curl -it --rm -- sh
+# Inside the pod: curl http://api-governance.api-governance.svc.cluster.local/health/
 ```
 
 ## 📖 Documentation
