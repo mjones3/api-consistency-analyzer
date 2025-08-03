@@ -18,8 +18,8 @@ echo "Press Ctrl+C to stop all port forwards"
 
 # Start port forwards in background
 kubectl port-forward svc/api-governance 8080:80 -n api-governance &
-kubectl port-forward svc/legacy-donor-service 8081:8081 -n blood-banking &
-kubectl port-forward svc/modern-donor-service 8082:8082 -n blood-banking &
+kubectl port-forward svc/legacy-donor-service 8081:8081 -n api &
+kubectl port-forward svc/modern-donor-service 8082:8082 -n api &
 
 # Istio dashboards (if available)
 kubectl port-forward svc/kiali 20001:20001 -n istio-system &

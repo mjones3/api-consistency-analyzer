@@ -390,7 +390,7 @@ def create_api_router(platform) -> APIRouter:
             // Mock data for demonstration
             const mockServices = [
                 {
-                    namespace: 'blood-banking',
+                    namespace: 'api',
                     serviceName: 'legacy-donor-service',
                     totalAttributes: 9,
                     nonCompliantAttributes: 8,
@@ -398,7 +398,7 @@ def create_api_router(platform) -> APIRouter:
                     openApiUrl: 'http://localhost:8081/swagger-ui.html'
                 },
                 {
-                    namespace: 'blood-banking',
+                    namespace: 'api',
                     serviceName: 'modern-donor-service',
                     totalAttributes: 9,
                     nonCompliantAttributes: 1,

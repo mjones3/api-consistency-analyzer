@@ -61,21 +61,16 @@ build_modern_service() {
 }
 
 load_images_to_kind() {
-    local context=$(kubectl config current-context 2>/dev/null || echo "")
-    
-    if [[ "$context" == *"kind"* ]]; then
+    if kubectl config current-context | grep -q "kind"; then
         log_info "Loading images into Kind cluster..."
         
-        # Extract cluster name from context (e.g., kind-api-governance -> api-governance)
-        local cluster_name=$(echo "$context" | sed 's/kind-//')
+        kind load docker-image api-governance:latest || log_warning "Failed to load api-governance image"
+        kind load docker-image legacy-donor-service:latest || log_warning "Failed to load legacy-donor-service image"
+        kind load docker-image modern-donor-service:latest || log_warning "Failed to load modern-donor-service image"
         
-        kind load docker-image api-governance:latest --name "$cluster_name" || log_warning "Failed to load api-governance image"
-        kind load docker-image legacy-donor-service:latest --name "$cluster_name" || log_warning "Failed to load legacy-donor-service image"
-        kind load docker-image modern-donor-service:latest --name "$cluster_name" || log_warning "Failed to load modern-donor-service image"
-        
-        log_success "Images loaded into Kind cluster: $cluster_name"
+        log_success "Images loaded into Kind cluster"
     else
-        log_info "Not using Kind cluster (context: $context), skipping image loading"
+        log_info "Not using Kind cluster, skipping image loading"
     fi
 }
 

@@ -23,7 +23,7 @@ async def test_fhir_compliance():
     # Create APISpec object
     legacy_spec = APISpec(
         service_name="legacy-donor-service",
-        namespace="blood-banking",
+        namespace="api",
         spec_url="http://localhost:8081/v3/api-docs",
         spec_content=legacy_spec_content
     )
@@ -57,7 +57,7 @@ async def test_fhir_compliance():
     
     modern_spec = APISpec(
         service_name="modern-donor-service",
-        namespace="blood-banking", 
+        namespace="api", 
         spec_url="http://localhost:8082/v3/api-docs",
         spec_content=modern_spec_content
     )
@@ -68,7 +68,7 @@ async def test_fhir_compliance():
     # Create sample data for web UI
     services_data = [
         {
-            "namespace": "blood-banking",
+            "namespace": "api",
             "service_name": "legacy-donor-service",
             "total_attributes": compliance_result['total_fields'],
             "non_compliant_attributes": compliance_result['total_fields'] - compliance_result['compliant_fields'],
@@ -78,7 +78,7 @@ async def test_fhir_compliance():
             "recommendations_url": "/recommendations/legacy-donor-service"
         },
         {
-            "namespace": "blood-banking",
+            "namespace": "api",
             "service_name": "modern-donor-service", 
             "total_attributes": modern_compliance['total_fields'],
             "non_compliant_attributes": modern_compliance['total_fields'] - modern_compliance['compliant_fields'],

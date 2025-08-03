@@ -21,14 +21,14 @@ The API Governance Platform has successfully analyzed the Arc One blood banking 
 ## 🔍 **Service Discovery Results**
 
 ### **Legacy Donor Service**
-- **Namespace**: `blood-banking`
+- **Namespace**: `api`
 - **Endpoint**: `http://legacy-donor-service:8081`
 - **API Standard**: Custom REST API
 - **Compliance**: Non-FHIR
 - **Status**: ✅ Active
 
 ### **Modern Donor Service** 
-- **Namespace**: `blood-banking`
+- **Namespace**: `api`
 - **Endpoint**: `http://modern-donor-service:8082`
 - **API Standard**: FHIR R4
 - **Compliance**: FHIR R4 Compliant

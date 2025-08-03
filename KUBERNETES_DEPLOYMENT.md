@@ -56,7 +56,7 @@ This guide covers deploying the API Governance Platform and Arc One Blood Bankin
 - **RBAC**: ServiceAccount with cluster-wide read permissions
 - **Istio**: VirtualService, DestinationRule, and Gateway configuration
 
-### Blood Banking Services (blood-banking namespace)
+### Blood Banking Services (api namespace)
 - **Legacy Donor Service**: Non-FHIR compliant Spring Boot service
 - **Modern Donor Service**: FHIR R4 compliant Spring Boot service
 - **Istio Configuration**: VirtualServices, DestinationRules, PeerAuthentication
@@ -66,7 +66,7 @@ This guide covers deploying the API Governance Platform and Arc One Blood Bankin
 
 The API Governance Platform automatically:
 
-1. **Discovers Services**: Scans `blood-banking`, `api-governance`, and `default` namespaces
+1. **Discovers Services**: Scans `api`, `api-governance`, and `default` namespaces
 2. **Filters by Labels**: Looks for services with `service-type=spring-boot`
 3. **Checks Istio Integration**: Verifies sidecar injection (`sidecar.istio.io/inject=true`)
 4. **Health Validation**: Tests service health endpoints
@@ -123,7 +123,7 @@ open http://localhost:8082/swagger-ui.html
 
 ### Environment Variables (ConfigMap)
 ```yaml
-KUBERNETES_NAMESPACES: "blood-banking,api-governance,default"
+KUBERNETES_NAMESPACES: "api,api-governance,default"
 HARVEST_INTERVAL_HOURS: "2"
 MAX_CONCURRENT_REQUESTS: "10"
 FHIR_COMPLIANCE_MODE: "true"
@@ -135,7 +135,7 @@ HEALTH_CHECK_ENABLED: "true"
 ```yaml
 labels:
   service-type: spring-boot  # Required for discovery
-  domain: blood-banking      # Optional: domain classification
+  domain: api      # Optional: domain classification
   compliance: fhir-r4        # Optional: compliance level
 ```
 
@@ -187,16 +187,16 @@ open http://localhost:9090
 ### Kubernetes Monitoring
 ```bash
 # Check pod status
-kubectl get pods -n blood-banking -n api-governance
+kubectl get pods -n api -n api-governance
 
 # View logs
 kubectl logs -f deployment/api-governance -n api-governance
-kubectl logs -f deployment/legacy-donor-service -n blood-banking
-kubectl logs -f deployment/modern-donor-service -n blood-banking
+kubectl logs -f deployment/legacy-donor-service -n api
+kubectl logs -f deployment/modern-donor-service -n api
 
 # Check Istio configuration
-kubectl get virtualservices,destinationrules -n blood-banking
-kubectl get gateways,peerauthentications -n blood-banking
+kubectl get virtualservices,destinationrules -n api
+kubectl get gateways,peerauthentications -n api
 ```
 
 ### Platform Metrics
@@ -217,7 +217,7 @@ The API Governance Platform exposes Prometheus metrics:
 ```bash
 # Debug service discovery
 kubectl exec -n api-governance deployment/api-governance -- \
-  curl -s http://legacy-donor-service.blood-banking.svc.cluster.local:8081/actuator/health
+  curl -s http://legacy-donor-service.api.svc.cluster.local:8081/actuator/health
 ```
 
 ### Analysis Not Running
@@ -228,7 +228,7 @@ kubectl exec -n api-governance deployment/api-governance -- \
 ### Istio Issues
 1. **Verify Installation**: `istioctl verify-install`
 2. **Check Proxy Status**: `istioctl proxy-status`
-3. **Validate Configuration**: `istioctl analyze -n blood-banking`
+3. **Validate Configuration**: `istioctl analyze -n api`
 
 ## 🔄 Continuous Operation
 

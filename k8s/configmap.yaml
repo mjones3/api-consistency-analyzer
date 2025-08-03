@@ -8,7 +8,7 @@ metadata:
 data:
   ENVIRONMENT: "kubernetes"
   LOG_LEVEL: "INFO"
-  KUBERNETES_NAMESPACES: "blood-banking,api-governance,default"
+  KUBERNETES_NAMESPACES: "api,api-governance,default"
   HARVEST_INTERVAL_HOURS: "2"
   MAX_CONCURRENT_REQUESTS: "10"
   FHIR_COMPLIANCE_MODE: "true"

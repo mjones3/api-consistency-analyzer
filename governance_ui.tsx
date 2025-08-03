@@ -60,7 +60,7 @@ const GovernanceDashboard: React.FC = () => {
   // Enhanced mock data with FHIR compliance analysis
   const mockServices: Service[] = [
     {
-      namespace: "blood-banking",
+      namespace: "api",
       serviceName: "legacy-donor-service",
       totalAttributes: 9,
       nonCompliantAttributes: 8,
@@ -175,7 +175,7 @@ const GovernanceDashboard: React.FC = () => {
       ],
     },
     {
-      namespace: "blood-banking",
+      namespace: "api",
       serviceName: "modern-donor-service",
       totalAttributes: 9,
       nonCompliantAttributes: 1,

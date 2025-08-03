@@ -37,13 +37,13 @@ check_namespaces() {
         return 1
     fi
     
-    if kubectl get namespace blood-banking &> /dev/null; then
-        log_success "✓ blood-banking namespace exists"
+    if kubectl get namespace api &> /dev/null; then
+        log_success "✓ api namespace exists"
     else
-        log_warning "✗ blood-banking namespace missing"
-        echo "  Creating blood-banking namespace..."
-        kubectl create namespace blood-banking
-        kubectl label namespace blood-banking istio-injection=enabled
+        log_warning "✗ api namespace missing"
+        echo "  Creating api namespace..."
+        kubectl create namespace api
+        kubectl label namespace api istio-injection=enabled
     fi
 }
 
@@ -56,12 +56,12 @@ check_deployments() {
     
     echo ""
     echo "Blood Banking namespace:"
-    kubectl get pods -n blood-banking -o wide || echo "  No pods found"
+    kubectl get pods -n api -o wide || echo "  No pods found"
     
     echo ""
     echo "Services:"
     kubectl get svc -n api-governance || echo "  No services in api-governance"
-    kubectl get svc -n blood-banking || echo "  No services in blood-banking"
+    kubectl get svc -n api || echo "  No services in api"
 }
 
 check_docker_images() {
@@ -104,11 +104,11 @@ suggest_fixes() {
     echo ""
     echo "3. Then deploy manually:"
     echo "   kubectl apply -f k8s/"
-    echo "   kubectl apply -f k8s/blood-banking-services/"
+    echo "   kubectl apply -f k8s/api-services/"
     echo ""
     echo "4. Check for errors:"
     echo "   kubectl describe pods -n api-governance"
-    echo "   kubectl describe pods -n blood-banking"
+    echo "   kubectl describe pods -n api"
     echo ""
     echo "5. View logs:"
     echo "   kubectl logs -l app=api-governance -n api-governance"

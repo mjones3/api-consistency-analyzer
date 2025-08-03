@@ -44,14 +44,14 @@ def main():
     services = [
         {
             "name": "legacy-donor-service",
-            "namespace": "blood-banking", 
+            "namespace": "api", 
             "endpoint": "http://legacy-donor-service:8081",
             "compliance": "non-fhir",
             "status": "✅ active"
         },
         {
             "name": "modern-donor-service",
-            "namespace": "blood-banking",
+            "namespace": "api",
             "endpoint": "http://modern-donor-service:8082", 
             "compliance": "fhir-r4",
             "status": "✅ active"

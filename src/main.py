@@ -184,7 +184,7 @@ def create_app() -> FastAPI:
             // Enhanced mock data with FHIR compliance analysis
             const mockServices = [
                 {
-                    namespace: 'blood-banking',
+                    namespace: 'api',
                     serviceName: 'legacy-donor-service',
                     totalAttributes: 9,
                     nonCompliantAttributes: 8,
@@ -258,7 +258,7 @@ def create_app() -> FastAPI:
                     ]
                 },
                 {
-                    namespace: 'blood-banking',
+                    namespace: 'api',
                     serviceName: 'modern-donor-service',
                     totalAttributes: 9,
                     nonCompliantAttributes: 1,

@@ -348,7 +348,7 @@ class IstioServiceDiscovery:
         return [
             ServiceInfo(
                 name="legacy-donor-service",
-                namespace="blood-banking",
+                namespace="api",
                 labels={"app": "legacy-donor-service", "version": "v1"},
                 annotations={"sidecar.istio.io/inject": "true"},
                 endpoints=["http://legacy-donor-service:8081"],
@@ -359,7 +359,7 @@ class IstioServiceDiscovery:
             ),
             ServiceInfo(
                 name="modern-donor-service",
-                namespace="blood-banking",
+                namespace="api",
                 labels={"app": "modern-donor-service", "version": "v2"},
                 annotations={"sidecar.istio.io/inject": "true"},
                 endpoints=["http://modern-donor-service:8082"],

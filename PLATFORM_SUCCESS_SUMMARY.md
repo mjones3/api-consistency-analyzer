@@ -10,8 +10,8 @@ The API Governance Platform has been successfully deployed and is **fully operat
 
 ### **1. Complete Kubernetes Architecture**
 - ✅ **API Governance Platform**: Running in `api-governance` namespace
-- ✅ **Legacy Donor Service**: Running in `blood-banking` namespace  
-- ✅ **Modern FHIR Donor Service**: Running in `blood-banking` namespace
+- ✅ **Legacy Donor Service**: Running in `api` namespace  
+- ✅ **Modern FHIR Donor Service**: Running in `api` namespace
 - ✅ **Istio Service Mesh**: Providing service discovery and observability
 - ✅ **PostgreSQL Database**: Persistent storage for analysis results
 
