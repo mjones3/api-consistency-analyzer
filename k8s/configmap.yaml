@@ -11,7 +11,7 @@ data:
   KUBERNETES_NAMESPACES: "api,api-governance,default"
   HARVEST_INTERVAL_HOURS: "2"
   MAX_CONCURRENT_REQUESTS: "10"
-  FHIR_COMPLIANCE_MODE: "true"
+  SPECTRAL_VALIDATION_ENABLED: "true"
   METRICS_ENABLED: "true"
   STORAGE_PATH: "/data/api-specs"
   SERVICE_LABEL_APP: "spring-boot"

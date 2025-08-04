@@ -1,0 +1,155 @@
+# Arc-One API Governance Platform - Spectral Rules
+# OpenAPI Style Validation Configuration
+
+extends: ["@stoplight/spectral-openapi"]
+
+rules:
+  # Field Naming Convention Rules
+  arc-one-field-naming-camelcase:
+    description: "Field names should use camelCase convention"
+    given: "$.paths[*][*].responses[*].content[*].schema..properties[*]~"
+    severity: error
+    then:
+      function: pattern
+      functionOptions:
+        match: "^[a-z][a-zA-Z0-9]*$"
+    message: "Field '{{property}}' should use camelCase naming convention"
+
+  arc-one-parameter-naming:
+    description: "Parameter names should use camelCase"
+    given: "$.paths[*][*].parameters[*].name"
+    severity: error
+    then:
+      function: pattern
+      functionOptions:
+        match: "^[a-z][a-zA-Z0-9]*$"
+    message: "Parameter '{{value}}' should use camelCase naming convention"
+
+  # Endpoint Naming Pattern Rules
+  arc-one-path-kebab-case:
+    description: "Path segments should use kebab-case"
+    given: "$.paths[*]~"
+    severity: warn
+    then:
+      function: pattern
+      functionOptions:
+        match: "^(/[a-z0-9-]+(\{[a-zA-Z0-9]+\})?)*/?$"
+    message: "Path '{{property}}' should use kebab-case for segments"
+
+  arc-one-collection-pluralization:
+    description: "Collection endpoints should use plural nouns"
+    given: "$.paths[*]~"
+    severity: warn
+    then:
+      function: pattern
+      functionOptions:
+        notMatch: "^/[a-z-]+[^s]$"
+    message: "Collection endpoint '{{property}}' should use plural noun"
+
+  # HTTP Method Usage Rules
+  arc-one-get-no-request-body:
+    description: "GET requests should not have request body"
+    given: "$.paths[*].get.requestBody"
+    severity: error
+    then:
+      function: falsy
+    message: "GET requests should not include a request body"
+
+  arc-one-delete-responses:
+    description: "DELETE should return 204 or 200"
+    given: "$.paths[*].delete.responses"
+    severity: warn
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          type: object
+          anyOf:
+            - required: ["200"]
+            - required: ["204"]
+    message: "DELETE operations should return 200 or 204 status codes"
+
+  # Error Response Rules
+  arc-one-error-response-400:
+    description: "All endpoints should define 400 Bad Request response"
+    given: "$.paths[*][*].responses"
+    severity: warn
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          type: object
+          required: ["400"]
+    message: "Endpoint should define 400 Bad Request response"
+
+  arc-one-error-response-500:
+    description: "All endpoints should define 500 Internal Server Error response"
+    given: "$.paths[*][*].responses"
+    severity: warn
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          type: object
+          required: ["500"]
+    message: "Endpoint should define 500 Internal Server Error response"
+
+  arc-one-error-schema-consistency:
+    description: "Error responses should have consistent schema"
+    given: "$.paths[*][*].responses[4xx,5xx].content[*].schema"
+    severity: error
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          type: object
+          required: ["error", "message", "timestamp"]
+          properties:
+            error:
+              type: string
+            message:
+              type: string
+            timestamp:
+              type: string
+              format: date-time
+    message: "Error response should include 'error', 'message', and 'timestamp' fields"
+
+  # Response Schema Naming
+  arc-one-response-schema-naming:
+    description: "Response schema names should be descriptive"
+    given: "$.components.schemas[*]~"
+    severity: info
+    then:
+      function: pattern
+      functionOptions:
+        match: "^[A-Z][a-zA-Z0-9]*(Response|Request|DTO|Model)$"
+    message: "Schema name '{{property}}' should end with Response, Request, DTO, or Model"
+
+  # Security Rules
+  arc-one-security-defined:
+    description: "All endpoints should have security requirements"
+    given: "$.paths[*][*]"
+    severity: warn
+    then:
+      function: truthy
+      field: security
+    message: "Endpoint should define security requirements"
+
+  # Documentation Rules
+  arc-one-operation-description:
+    description: "All operations should have descriptions"
+    given: "$.paths[*][*]"
+    severity: info
+    then:
+      function: truthy
+      field: description
+    message: "Operation should have a description"
+
+  arc-one-parameter-description:
+    description: "All parameters should have descriptions"
+    given: "$.paths[*][*].parameters[*]"
+    severity: info
+    then:
+      function: truthy
+      field: description
+    message: "Parameter should have a description"

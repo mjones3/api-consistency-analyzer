@@ -12,9 +12,8 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 
 from src.core.api_harvester import APIHarvester
-from src.core.consistency_analyzer import ConsistencyAnalyzer
-from src.core.fhir_mapper import FHIRMapper
 from src.core.istio_discovery import IstioServiceDiscovery
+from src.services.compliance_analyzer import ComplianceAnalyzer
 from src.server.api_routes import create_api_router
 from src.server.health_server import create_health_router
 # from src.server.web_ui import create_web_ui_router
@@ -30,8 +29,7 @@ class APIGovernancePlatform:
     def __init__(self):
         self.discovery = None
         self.harvester = None
-        self.analyzer = None
-        self.fhir_mapper = None
+        self.compliance_analyzer = None
         self.harvest_task = None
         self.shutdown_event = asyncio.Event()
     
@@ -42,8 +40,7 @@ class APIGovernancePlatform:
         # Initialize components
         self.discovery = IstioServiceDiscovery()
         self.harvester = APIHarvester(self.discovery)
-        self.analyzer = ConsistencyAnalyzer()
-        self.fhir_mapper = FHIRMapper()
+        self.compliance_analyzer = ComplianceAnalyzer()
         
         # Start background harvest task if in continuous mode
         if os.getenv("RUN_MODE", "continuous") == "continuous":
@@ -98,19 +95,32 @@ class APIGovernancePlatform:
         specs = await self.harvester.harvest_specs(services)
         logger.info("Harvested API specs", count=len(specs))
         
-        # Analyze consistency
-        report = await self.analyzer.analyze_consistency(specs)
-        logger.info("Generated consistency report", issues=len(report.issues))
+        # Prepare specs for compliance analysis
+        services_specs = []
+        for spec in specs:
+            if spec.spec_content:
+                services_specs.append({
+                    "service_name": spec.service_name,
+                    "namespace": spec.namespace,
+                    "spec_content": spec.spec_content,
+                    "spec_url": spec.spec_url
+                })
         
-        # Generate FHIR recommendations
-        recommendations = await self.fhir_mapper.generate_recommendations(report)
-        logger.info("Generated FHIR recommendations", count=len(recommendations))
+        # Analyze compliance using Spectral
+        compliance_overviews = await self.compliance_analyzer.analyze_all_services(services_specs)
+        logger.info("Generated compliance analysis", services_analyzed=len(compliance_overviews))
+        
+        # Generate compliance summary
+        compliance_summary = self.compliance_analyzer.get_compliance_summary(compliance_overviews)
+        logger.info("Generated compliance summary", 
+                   average_compliance=compliance_summary.average_compliance,
+                   total_issues=compliance_summary.critical_issues + compliance_summary.major_issues + compliance_summary.minor_issues)
         
         return {
             "services": services,
             "specs": specs,
-            "report": report,
-            "recommendations": recommendations
+            "compliance_overviews": compliance_overviews,
+            "compliance_summary": compliance_summary
         }
 
 
@@ -140,14 +150,14 @@ def create_app() -> FastAPI:
     # Add simple web UI route directly to the app
     @app.get("/", response_class=HTMLResponse)
     async def web_ui():
-        """Simple web UI for the API Governance Platform."""
+        """Compliance Dashboard for the API Governance Platform."""
         html_content = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🩸 API Governance Platform - FHIR Compliance Dashboard</title>
+    <title>🔧 API Governance Platform - OpenAPI Compliance Dashboard</title>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -174,14 +184,14 @@ def create_app() -> FastAPI:
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        const GovernanceDashboard = () => {
+        const ComplianceDashboard = () => {
             const [services, setServices] = useState([]);
             const [isLoading, setIsLoading] = useState(true);
             const [lastUpdated, setLastUpdated] = useState(null);
-            const [selectedService, setSelectedService] = useState(null);
-            const [showRecommendations, setShowRecommendations] = useState(false);
             const [connectionStatus, setConnectionStatus] = useState('connecting');
             const [error, setError] = useState(null);
+            const [sortField, setSortField] = useState('service_name');
+            const [sortDirection, setSortDirection] = useState('asc');
 
             // Live data fetching functions
             const fetchLiveData = async () => {
@@ -190,67 +200,22 @@ def create_app() -> FastAPI:
                     setError(null);
                     setConnectionStatus('connecting');
                     
-                    // Fetch discovered services
-                    const servicesResponse = await fetch('/api/v1/discovered-services');
-                    if (!servicesResponse.ok) throw new Error('Failed to fetch services');
-                    const discoveredServices = await servicesResponse.json();
+                    // Fetch compliance overview data
+                    const complianceResponse = await fetch('/api/v1/compliance/overview');
+                    if (!complianceResponse.ok) throw new Error('Failed to fetch compliance data');
+                    const complianceData = await complianceResponse.json();
                     
-                    // Fetch FHIR recommendations
-                    const recommendationsResponse = await fetch('/api/v1/fhir/recommendations');
-                    if (!recommendationsResponse.ok) throw new Error('Failed to fetch recommendations');
-                    const recommendations = await recommendationsResponse.json();
-                    
-                    // Fetch latest consistency report
-                    const reportResponse = await fetch('/api/v1/reports/latest');
-                    if (!reportResponse.ok) throw new Error('Failed to fetch report');
-                    const report = await reportResponse.json();
-                    
-                    // Process and combine the data
-                    const processedServices = discoveredServices.map(service => {
-                        // Find recommendations for this service
-                        const serviceRecommendations = recommendations.filter(rec => 
-                            rec.services_affected.includes(service.name)
-                        );
-                        
-                        // Find issues for this service from the report
-                        const serviceIssues = report.issues.filter(issue => 
-                            issue.affected_services.includes(service.name)
-                        );
-                        
-                        // Calculate compliance metrics
-                        const totalAttributes = serviceRecommendations.length + 5; // Base attributes
-                        const nonCompliantAttributes = serviceRecommendations.filter(rec => 
-                            rec.impact_level === 'high' || rec.impact_level === 'critical'
-                        ).length;
-                        const compliancePercentage = totalAttributes > 0 
-                            ? Math.round(((totalAttributes - nonCompliantAttributes) / totalAttributes) * 100)
-                            : 100;
-                        
-                        // Create FHIR violations from recommendations
-                        const fhirViolations = serviceRecommendations.map((rec, index) => ({
-                            fieldName: rec.field_name,
-                            currentType: rec.current_usage.join(', ') || 'unknown',
-                            requiredType: rec.recommended_name,
-                            fhirCompliantValue: `"${rec.recommended_name}"`,
-                            openApiLineNumber: Math.floor(Math.random() * 100) + 20, // Simulated line number
-                            severity: rec.impact_level === 'high' ? 'error' : 'warning'
-                        }));
-                        
-                        return {
-                            namespace: service.namespace,
-                            serviceName: service.name,
-                            totalAttributes,
-                            nonCompliantAttributes,
-                            compliancePercentage,
-                            openApiUrl: service.openapi_endpoint ? 
-                                service.openapi_endpoint.replace('/v3/api-docs', '/swagger-ui.html') : 
-                                `http://localhost:${service.name.includes('legacy') ? '8081' : '8082'}/swagger-ui.html`,
-                            fhirViolations,
-                            healthEndpoint: service.health_endpoint,
-                            istioSidecar: service.istio_sidecar,
-                            serviceVersion: service.service_version
-                        };
-                    });
+                    // Process compliance data
+                    const processedServices = complianceData.map(service => ({
+                        serviceName: service.service_name,
+                        namespace: service.namespace,
+                        totalEndpoints: service.total_endpoints,
+                        inconsistentNaming: service.inconsistent_naming_count,
+                        inconsistentErrors: service.inconsistent_error_count,
+                        compliancePercentage: Math.round(service.compliance_percentage),
+                        openApiUrl: service.openapi_url || `http://localhost:${service.service_name.includes('legacy') ? '8081' : '8082'}/swagger-ui.html`,
+                        lastAnalyzed: service.last_analyzed
+                    }));
                     
                     setServices(processedServices);
                     setLastUpdated(new Date().toISOString());
@@ -272,98 +237,27 @@ def create_app() -> FastAPI:
             // Fallback mock data in case API fails
             const mockServices = [
                 {
-                    namespace: 'api',
                     serviceName: 'legacy-donor-service',
-                    totalAttributes: 9,
-                    nonCompliantAttributes: 8,
-                    compliancePercentage: 11.1,
+                    namespace: 'api',
+                    totalEndpoints: 12,
+                    inconsistentNaming: 5,
+                    inconsistentErrors: 3,
+                    compliancePercentage: 75,
                     openApiUrl: 'http://localhost:8081/swagger-ui.html',
-                    fhirViolations: [
-                        {
-                            fieldName: 'resourceType',
-                            currentType: 'missing',
-                            requiredType: 'string',
-                            fhirCompliantValue: '"Patient"',
-                            openApiLineNumber: null,
-                            severity: 'error'
-                        },
-                        {
-                            fieldName: 'donorId',
-                            currentType: 'string',
-                            requiredType: 'Identifier[]',
-                            fhirCompliantValue: '[{"value": "D123456"}]',
-                            openApiLineNumber: 45,
-                            severity: 'error'
-                        },
-                        {
-                            fieldName: 'firstName',
-                            currentType: 'string',
-                            requiredType: 'string[]',
-                            fhirCompliantValue: '["John"]',
-                            openApiLineNumber: 52,
-                            severity: 'error'
-                        },
-                        {
-                            fieldName: 'lastName',
-                            currentType: 'string',
-                            requiredType: 'string',
-                            fhirCompliantValue: '"Smith"',
-                            openApiLineNumber: 58,
-                            severity: 'error'
-                        },
-                        {
-                            fieldName: 'phoneNumber',
-                            currentType: 'string',
-                            requiredType: 'ContactPoint[]',
-                            fhirCompliantValue: '[{"system": "phone", "value": "555-1234"}]',
-                            openApiLineNumber: 64,
-                            severity: 'warning'
-                        },
-                        {
-                            fieldName: 'email',
-                            currentType: 'string',
-                            requiredType: 'ContactPoint[]',
-                            fhirCompliantValue: '[{"system": "email", "value": "john@example.com"}]',
-                            openApiLineNumber: 70,
-                            severity: 'warning'
-                        },
-                        {
-                            fieldName: 'zip',
-                            currentType: 'integer',
-                            requiredType: 'string',
-                            fhirCompliantValue: '"12345"',
-                            openApiLineNumber: 78,
-                            severity: 'warning'
-                        },
-                        {
-                            fieldName: 'createdDate',
-                            currentType: 'string',
-                            requiredType: 'dateTime',
-                            fhirCompliantValue: '"2023-01-01T12:00:00Z"',
-                            openApiLineNumber: 85,
-                            severity: 'warning'
-                        }
-                    ]
+                    lastAnalyzed: new Date().toISOString()
                 },
                 {
-                    namespace: 'api',
                     serviceName: 'modern-donor-service',
-                    totalAttributes: 9,
-                    nonCompliantAttributes: 1,
-                    compliancePercentage: 88.9,
+                    namespace: 'api',
+                    totalEndpoints: 8,
+                    inconsistentNaming: 2,
+                    inconsistentErrors: 1,
+                    compliancePercentage: 85,
                     openApiUrl: 'http://localhost:8082/swagger-ui.html',
-                    fhirViolations: [
-                        {
-                            fieldName: 'active',
-                            currentType: 'missing',
-                            requiredType: 'boolean',
-                            fhirCompliantValue: 'true',
-                            openApiLineNumber: null,
-                            severity: 'warning'
-                        }
-                    ]
+                    lastAnalyzed: new Date().toISOString()
                 }
             ];
+
 
             useEffect(() => {
                 // Initial data fetch
@@ -376,9 +270,62 @@ def create_app() -> FastAPI:
                 return () => clearInterval(interval);
             }, []);
 
+            // Sorting functionality
+            const sortServices = (field) => {
+                const direction = sortField === field && sortDirection === 'asc' ? 'desc' : 'asc';
+                setSortField(field);
+                setSortDirection(direction);
+                
+                const sorted = [...services].sort((a, b) => {
+                    let aVal = a[field];
+                    let bVal = b[field];
+                    
+                    if (typeof aVal === 'string') {
+                        aVal = aVal.toLowerCase();
+                        bVal = bVal.toLowerCase();
+                    }
+                    
+                    if (direction === 'asc') {
+                        return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+                    } else {
+                        return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
+                    }
+                });
+                
+                setServices(sorted);
+            };
+
+            // Export to CSV functionality
+            const exportToCSV = () => {
+                const headers = ['Service Name', 'Endpoints', 'Inconsistent Names', 'Inconsistent Errors', 'Compliance %'];
+                const csvContent = [
+                    headers.join(','),
+                    ...services.map(service => [
+                        service.serviceName,
+                        service.totalEndpoints,
+                        service.inconsistentNaming,
+                        service.inconsistentErrors,
+                        service.compliancePercentage
+                    ].join(','))
+                ].join('\\n');
+                
+                const blob = new Blob([csvContent], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `api-compliance-report-${new Date().toISOString().split('T')[0]}.csv`;
+                a.click();
+                window.URL.revokeObjectURL(url);
+            };
+
             const averageCompliance = services.length > 0 
                 ? Math.round(services.reduce((sum, service) => sum + service.compliancePercentage, 0) / services.length)
                 : 0;
+            
+            const openDetailsWindow = (serviceName, type) => {
+                const url = `/api/v1/compliance/${type}/${serviceName}/window`;
+                window.open(url, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+            };
 
             const handleViewRecommendations = (service) => {
                 setSelectedService(service);
@@ -403,10 +350,10 @@ def create_app() -> FastAPI:
                             <div className="flex justify-between items-center">
                                 <div>
                                     <h1 className="text-3xl font-bold text-gray-900">
-                                        🩸 Live API Governance Platform
+                                        🔧 API Governance Platform
                                     </h1>
                                     <p className="mt-2 text-gray-600">
-                                        Real-time FHIR R4 Compliance Monitoring with Live Data
+                                        OpenAPI Style Validation & Compliance Monitoring
                                     </p>
                                 </div>
                                 <div className="flex items-center space-x-4">
@@ -465,94 +412,154 @@ def create_app() -> FastAPI:
                             </div>
                         )}
                         
-                        {/* Summary Cards with Average Compliance */}
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                        {/* Summary Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
                             <div className="bg-white rounded-lg shadow-sm border p-6">
                                 <p className="text-sm font-medium text-gray-600">Total Services</p>
                                 <p className="text-2xl font-bold text-gray-900">{services.length}</p>
                             </div>
                             <div className="bg-white rounded-lg shadow-sm border p-6">
                                 <p className="text-sm font-medium text-gray-600">Average Compliance</p>
-                                <p className={`text-2xl font-bold ${averageCompliance >= 70 ? 'compliance-high' : averageCompliance >= 50 ? 'compliance-medium' : 'compliance-low'}`}>
+                                <p className={`text-2xl font-bold ${averageCompliance >= 90 ? 'text-green-600' : averageCompliance >= 70 ? 'text-yellow-600' : 'text-red-600'}`}>
                                     {averageCompliance}%
                                 </p>
                             </div>
                             <div className="bg-white rounded-lg shadow-sm border p-6">
-                                <p className="text-sm font-medium text-gray-600">Critical Services</p>
-                                <p className="text-2xl font-bold text-red-600">
-                                    {services.filter(s => s.compliancePercentage < 70).length}
-                                </p>
-                            </div>
-                            <div className="bg-white rounded-lg shadow-sm border p-6">
-                                <p className="text-sm font-medium text-gray-600">Fully Compliant</p>
+                                <p className="text-sm font-medium text-gray-600">High Compliance</p>
                                 <p className="text-2xl font-bold text-green-600">
                                     {services.filter(s => s.compliancePercentage >= 90).length}
                                 </p>
                             </div>
+                            <div className="bg-white rounded-lg shadow-sm border p-6">
+                                <p className="text-sm font-medium text-gray-600">Medium Compliance</p>
+                                <p className="text-2xl font-bold text-yellow-600">
+                                    {services.filter(s => s.compliancePercentage >= 70 && s.compliancePercentage < 90).length}
+                                </p>
+                            </div>
+                            <div className="bg-white rounded-lg shadow-sm border p-6">
+                                <p className="text-sm font-medium text-gray-600">Low Compliance</p>
+                                <p className="text-2xl font-bold text-red-600">
+                                    {services.filter(s => s.compliancePercentage < 70).length}
+                                </p>
+                            </div>
                         </div>
 
-                        {/* Enhanced Services Table */}
+                        {/* Compliance Table */}
                         <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-                            <div className="px-6 py-4 border-b">
-                                <h2 className="text-lg font-semibold">FHIR R4 Compliance Analysis</h2>
+                            <div className="px-6 py-4 border-b flex justify-between items-center">
+                                <h2 className="text-lg font-semibold">Service Compliance Overview</h2>
+                                <button 
+                                    onClick={exportToCSV}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+                                >
+                                    📊 Export CSV
+                                </button>
                             </div>
                             <div className="overflow-x-auto">
                                 <table className="min-w-full divide-y divide-gray-200">
                                     <thead className="bg-gray-50">
                                         <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Namespace</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Service Name</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Attributes</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Non-compliant</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Compliance %</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">OpenAPI Spec</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">FHIR Recommendations</th>
+                                            <th 
+                                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
+                                                onClick={() => sortServices('serviceName')}
+                                            >
+                                                Service Name {sortField === 'serviceName' && (sortDirection === 'asc' ? '↑' : '↓')}
+                                            </th>
+                                            <th 
+                                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
+                                                onClick={() => sortServices('totalEndpoints')}
+                                            >
+                                                Endpoints {sortField === 'totalEndpoints' && (sortDirection === 'asc' ? '↑' : '↓')}
+                                            </th>
+                                            <th 
+                                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
+                                                onClick={() => sortServices('inconsistentNaming')}
+                                            >
+                                                Inconsistent Names {sortField === 'inconsistentNaming' && (sortDirection === 'asc' ? '↑' : '↓')}
+                                            </th>
+                                            <th 
+                                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
+                                                onClick={() => sortServices('inconsistentErrors')}
+                                            >
+                                                Inconsistent Errors {sortField === 'inconsistentErrors' && (sortDirection === 'asc' ? '↑' : '↓')}
+                                            </th>
+                                            <th 
+                                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
+                                                onClick={() => sortServices('compliancePercentage')}
+                                            >
+                                                Compliance % {sortField === 'compliancePercentage' && (sortDirection === 'asc' ? '↑' : '↓')}
+                                            </th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
                                         {services.map((service, index) => (
                                             <tr key={index} className="hover:bg-gray-50">
                                                 <td className="px-6 py-4">
-                                                    <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
-                                                        {service.namespace}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 font-medium">{service.serviceName}</td>
-                                                <td className="px-6 py-4">
-                                                    <span className="bg-gray-100 px-2 py-1 rounded text-xs">
-                                                        {service.totalAttributes}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <span className={`font-semibold ${service.nonCompliantAttributes > 0 ? 'text-red-600' : 'text-gray-900'}`}>
-                                                        {service.nonCompliantAttributes}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center">
-                                                        <span className={`font-semibold ${service.compliancePercentage >= 70 ? 'compliance-high' : service.compliancePercentage >= 50 ? 'compliance-medium' : 'compliance-low'}`}>
-                                                            {service.compliancePercentage}%
-                                                        </span>
-                                                        <div className="ml-3 w-16 bg-gray-200 rounded-full h-2">
-                                                            <div 
-                                                                className={`h-2 rounded-full ${service.compliancePercentage >= 70 ? 'bg-green-500' : service.compliancePercentage >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
-                                                                style={{width: `${service.compliancePercentage}%`}}
-                                                            />
-                                                        </div>
+                                                    <div>
+                                                        <div className="font-medium text-gray-900">{service.serviceName}</div>
+                                                        <div className="text-sm text-gray-500">{service.namespace}</div>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <a href={service.openApiUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 font-medium">
-                                                        📋 View Spec
-                                                    </a>
+                                                    <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm font-medium">
+                                                        {service.totalEndpoints}
+                                                    </span>
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <button 
-                                                        onClick={() => handleViewRecommendations(service)}
-                                                        className="text-orange-600 hover:text-orange-800 font-medium"
+                                                    {service.inconsistentNaming > 0 ? (
+                                                        <button 
+                                                            onClick={() => openDetailsWindow(service.serviceName, 'naming')}
+                                                            className="text-red-600 hover:text-red-800 font-medium underline"
+                                                        >
+                                                            {service.inconsistentNaming} [details]
+                                                        </button>
+                                                    ) : (
+                                                        <span className="text-green-600 font-medium">0</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    {service.inconsistentErrors > 0 ? (
+                                                        <button 
+                                                            onClick={() => openDetailsWindow(service.serviceName, 'errors')}
+                                                            className="text-red-600 hover:text-red-800 font-medium underline"
+                                                        >
+                                                            {service.inconsistentErrors} [details]
+                                                        </button>
+                                                    ) : (
+                                                        <span className="text-green-600 font-medium">0</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center">
+                                                        <div className="w-full bg-gray-200 rounded-full h-2 mr-3">
+                                                            <div 
+                                                                className={`h-2 rounded-full ${
+                                                                    service.compliancePercentage >= 90 ? 'bg-green-500' : 
+                                                                    service.compliancePercentage >= 70 ? 'bg-yellow-500' : 
+                                                                    'bg-red-500'
+                                                                }`}
+                                                                style={{width: `${service.compliancePercentage}%`}}
+                                                            />
+                                                        </div>
+                                                        <span className={`font-semibold text-sm ${
+                                                            service.compliancePercentage >= 90 ? 'text-green-600' : 
+                                                            service.compliancePercentage >= 70 ? 'text-yellow-600' : 
+                                                            'text-red-600'
+                                                        }`}>
+                                                            {service.compliancePercentage}%
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <a 
+                                                        href={service.openApiUrl} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer" 
+                                                        className="text-blue-600 hover:text-blue-800 font-medium mr-4"
                                                     >
-                                                        💡 View ({service.fhirViolations.length})
-                                                    </button>
+                                                        📋 OpenAPI
+                                                    </a>
                                                 </td>
                                             </tr>
                                         ))}
@@ -561,16 +568,17 @@ def create_app() -> FastAPI:
                             </div>
                         </div>
 
-                        <div className="mt-8 p-4 bg-green-50 rounded-lg">
+                        <div className="mt-8 p-4 bg-blue-50 rounded-lg">
                             <div className="flex justify-between items-start">
                                 <div>
-                                    <h3 className="font-semibold text-green-900 mb-2">✅ Live Features Active:</h3>
-                                    <ul className="text-sm text-green-700 space-y-1">
-                                        <li>• <strong>Real-time Service Discovery</strong> - Live monitoring of API namespace</li>
-                                        <li>• <strong>Dynamic FHIR Analysis</strong> - Live compliance scoring ({averageCompliance}%)</li>
-                                        <li>• <strong>Auto-refresh</strong> - Data updates every 30 seconds</li>
-                                        <li>• <strong>Live Recommendations</strong> - Real-time FHIR R4 compliance suggestions</li>
-                                        <li>• <strong>Kubernetes Integration</strong> - Direct service mesh monitoring</li>
+                                    <h3 className="font-semibold text-blue-900 mb-2">🔧 OpenAPI Compliance Features:</h3>
+                                    <ul className="text-sm text-blue-700 space-y-1">
+                                        <li>• <strong>Spectral Integration</strong> - OpenAPI style validation with custom rules</li>
+                                        <li>• <strong>Naming Convention Analysis</strong> - camelCase, kebab-case validation</li>
+                                        <li>• <strong>Error Response Consistency</strong> - Standard error schema enforcement</li>
+                                        <li>• <strong>Real-time Compliance Scoring</strong> - Average: {averageCompliance}%</li>
+                                        <li>• <strong>Sortable Dashboard</strong> - Click column headers to sort</li>
+                                        <li>• <strong>CSV Export</strong> - Download compliance reports</li>
                                     </ul>
                                 </div>
                                 <button 
@@ -590,104 +598,23 @@ def create_app() -> FastAPI:
                                     }}
                                     className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
                                 >
-                                    🚀 Trigger Analysis
+                                    🔄 Trigger Analysis
                                 </button>
                             </div>
                         </div>
 
                         <div className="mt-4 text-center text-sm text-gray-500">
-                            <p>🔴 Live API Governance Platform • Real-time FHIR R4 Analysis • Last updated: {lastUpdated ? new Date(lastUpdated).toLocaleString() : 'Never'}</p>
-                            <p className="mt-1">Auto-refreshing every 30 seconds • Monitoring API namespace services</p>
+                            <p>🔧 API Governance Platform • OpenAPI Style Validation • Last updated: {lastUpdated ? new Date(lastUpdated).toLocaleString() : 'Never'}</p>
+                            <p className="mt-1">Auto-refreshing every 30 seconds • Spectral-powered compliance analysis</p>
                         </div>
                     </div>
 
-                    {/* Enhanced Recommendations Modal with Line Numbers */}
-                    {showRecommendations && selectedService && (
-                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                            <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
-                                <div className="px-6 py-4 gradient-header text-white">
-                                    <div className="flex justify-between items-center">
-                                        <div>
-                                            <h3 className="text-lg font-semibold">FHIR R4 Compliance Recommendations</h3>
-                                            <p className="text-sm opacity-90">{selectedService.serviceName} • Line-by-Line Analysis</p>
-                                        </div>
-                                        <button onClick={() => setShowRecommendations(false)} className="text-white text-xl">✕</button>
-                                    </div>
-                                </div>
-                                <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-                                    <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                                        <div className="grid grid-cols-3 gap-4 text-center">
-                                            <div>
-                                                <p className="text-2xl font-bold text-gray-900">{selectedService.compliancePercentage}%</p>
-                                                <p className="text-sm text-gray-600">FHIR Compliance</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-2xl font-bold text-red-600">{selectedService.fhirViolations.length}</p>
-                                                <p className="text-sm text-gray-600">Issues Found</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-2xl font-bold text-blue-600">{selectedService.totalAttributes}</p>
-                                                <p className="text-sm text-gray-600">Total Fields</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="overflow-x-auto">
-                                        <table className="min-w-full divide-y divide-gray-200">
-                                            <thead className="bg-gray-50">
-                                                <tr>
-                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Field Name</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Current Type</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">FHIR Type</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">FHIR Compliant Value</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Line #</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Severity</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="bg-white divide-y divide-gray-200">
-                                                {selectedService.fhirViolations.map((violation, index) => (
-                                                    <tr key={index} className="hover:bg-gray-50">
-                                                        <td className="px-4 py-4">
-                                                            <code className="bg-gray-100 px-2 py-1 rounded font-mono text-sm">{violation.fieldName}</code>
-                                                        </td>
-                                                        <td className="px-4 py-4">
-                                                            <code className="text-gray-600">{violation.currentType}</code>
-                                                        </td>
-                                                        <td className="px-4 py-4">
-                                                            <code className="text-blue-600 font-semibold">{violation.requiredType}</code>
-                                                        </td>
-                                                        <td className="px-4 py-4">
-                                                            <code className="bg-blue-50 text-blue-800 px-2 py-1 rounded text-xs">{violation.fhirCompliantValue}</code>
-                                                        </td>
-                                                        <td className="px-4 py-4">
-                                                            {violation.openApiLineNumber ? (
-                                                                <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs font-mono">
-                                                                    Line {violation.openApiLineNumber}
-                                                                </span>
-                                                            ) : (
-                                                                <span className="text-gray-400">-</span>
-                                                            )}
-                                                        </td>
-                                                        <td className="px-4 py-4">
-                                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                                                violation.severity === 'error' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
-                                                            }`}>
-                                                                {violation.severity === 'error' ? '🚨' : '⚠️'} {violation.severity.toUpperCase()}
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+
                 </div>
             );
         };
 
-        ReactDOM.render(<GovernanceDashboard />, document.getElementById('root'));
+        ReactDOM.render(<ComplianceDashboard />, document.getElementById('root'));
     </script>
 </body>
 </html>

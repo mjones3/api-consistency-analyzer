@@ -544,4 +544,111 @@ def create_api_router(platform) -> APIRouter:
         """
         return HTMLResponse(content=html_content)
     
+    # New Compliance Endpoints
+    @router.get("/compliance/overview")
+    async def get_compliance_overview():
+        """Get service compliance overview table data."""
+        try:
+            # Get cached compliance data from the platform
+            if hasattr(platform, 'compliance_analyzer') and platform.compliance_analyzer:
+                # Get all cached compliance data
+                compliance_data = []
+                for cache_key, overview in platform.compliance_analyzer.compliance_cache.items():
+                    compliance_data.append({
+                        "service_name": overview.service_name,
+                        "namespace": overview.namespace,
+                        "total_endpoints": overview.total_endpoints,
+                        "inconsistent_naming_count": overview.inconsistent_naming_count,
+                        "inconsistent_error_count": overview.inconsistent_error_count,
+                        "compliance_percentage": overview.compliance_percentage,
+                        "openapi_url": overview.openapi_url,
+                        "last_analyzed": overview.last_analyzed.isoformat()
+                    })
+                
+                return compliance_data
+            else:
+                # Return empty list if no compliance analyzer
+                return []
+                
+        except Exception as e:
+            logger.error("Failed to get compliance overview", error=str(e))
+            raise HTTPException(status_code=500, detail="Failed to retrieve compliance overview")
+    
+    @router.get("/compliance/naming/{service_name}")
+    async def get_naming_inconsistencies(service_name: str, namespace: str = "api"):
+        """Get detailed naming inconsistencies for a service."""
+        try:
+            if hasattr(platform, 'compliance_analyzer') and platform.compliance_analyzer:
+                naming_details = platform.compliance_analyzer.get_service_naming_details(
+                    service_name, namespace
+                )
+                
+                if naming_details is None:
+                    raise HTTPException(status_code=404, detail="Service not found")
+                
+                return {
+                    "service_name": service_name,
+                    "namespace": namespace,
+                    "naming_inconsistencies": naming_details
+                }
+            else:
+                raise HTTPException(status_code=503, detail="Compliance analyzer not available")
+                
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error("Failed to get naming inconsistencies", 
+                        service=service_name, error=str(e))
+            raise HTTPException(status_code=500, detail="Failed to retrieve naming inconsistencies")
+    
+    @router.get("/compliance/errors/{service_name}")
+    async def get_error_inconsistencies(service_name: str, namespace: str = "api"):
+        """Get detailed error inconsistencies for a service."""
+        try:
+            if hasattr(platform, 'compliance_analyzer') and platform.compliance_analyzer:
+                error_details = platform.compliance_analyzer.get_service_error_details(
+                    service_name, namespace
+                )
+                
+                if error_details is None:
+                    raise HTTPException(status_code=404, detail="Service not found")
+                
+                return {
+                    "service_name": service_name,
+                    "namespace": namespace,
+                    "error_inconsistencies": error_details
+                }
+            else:
+                raise HTTPException(status_code=503, detail="Compliance analyzer not available")
+                
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error("Failed to get error inconsistencies", 
+                        service=service_name, error=str(e))
+            raise HTTPException(status_code=500, detail="Failed to retrieve error inconsistencies")
+    
+    # Detail Window Routes
+    @router.get("/compliance/naming/{service_name}/window", response_class=HTMLResponse)
+    async def naming_details_window(service_name: str):
+        """Serve naming inconsistencies detail window."""
+        try:
+            with open("src/templates/naming_details.html", "r") as f:
+                html_content = f.read()
+            return HTMLResponse(content=html_content.replace("{{service_name}}", service_name))
+        except Exception as e:
+            logger.error("Failed to serve naming details window", error=str(e))
+            raise HTTPException(status_code=500, detail="Failed to load naming details window")
+    
+    @router.get("/compliance/errors/{service_name}/window", response_class=HTMLResponse)
+    async def error_details_window(service_name: str):
+        """Serve error inconsistencies detail window."""
+        try:
+            with open("src/templates/error_details.html", "r") as f:
+                html_content = f.read()
+            return HTMLResponse(content=html_content.replace("{{service_name}}", service_name))
+        except Exception as e:
+            logger.error("Failed to serve error details window", error=str(e))
+            raise HTTPException(status_code=500, detail="Failed to load error details window")
+
     return router
