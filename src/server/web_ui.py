@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-from src.core.fhir_compliance import FHIRComplianceChecker
+# FHIR compliance functionality removed
 
 logger = structlog.get_logger()
 
@@ -43,8 +43,7 @@ def create_web_ui_router(platform) -> APIRouter:
             if namespace and namespace != "all":
                 services = [s for s in services if s.namespace == namespace]
             
-            # Get FHIR compliance checker
-            fhir_checker = FHIRComplianceChecker()
+            # Use existing compliance analyzer
             
             services_data = []
             total_compliance = 0
@@ -210,18 +209,18 @@ def create_web_ui_router(platform) -> APIRouter:
             if not spec:
                 raise HTTPException(status_code=404, detail="OpenAPI spec not found")
             
-            # Get FHIR compliance analysis
-            fhir_checker = FHIRComplianceChecker()
-            compliance_result = await fhir_checker.get_detailed_recommendations(spec)
+            # Get style guide compliance analysis
+            compliance_result = platform.compliance_analyzer.get_cached_compliance(service_name, "api")
+            recommendations = compliance_result.naming_issues if compliance_result else []
             
             return templates.TemplateResponse("recommendations.html", {
                 "request": request,
                 "service_name": service_name,
                 "service": service,
-                "recommendations": compliance_result.get("recommendations", []),
-                "compliance_score": compliance_result.get("compliance_score", 0),
-                "total_fields": compliance_result.get("total_fields", 0),
-                "compliant_fields": compliance_result.get("compliant_fields", 0)
+                "recommendations": recommendations,
+                "compliance_score": compliance_result.compliance_percentage if compliance_result else 0,
+                "total_fields": compliance_result.total_endpoints if compliance_result else 0,
+                "compliant_fields": int((compliance_result.total_endpoints * compliance_result.compliance_percentage / 100)) if compliance_result else 0
             })
             
         except Exception as e:
@@ -244,11 +243,25 @@ def create_web_ui_router(platform) -> APIRouter:
             if not spec:
                 raise HTTPException(status_code=404, detail="OpenAPI spec not found")
             
-            # Get FHIR compliance analysis
-            fhir_checker = FHIRComplianceChecker()
-            compliance_result = await fhir_checker.get_detailed_recommendations(spec)
+            # Get style guide compliance analysis
+            compliance_result = platform.compliance_analyzer.get_cached_compliance(service_name, "api")
             
-            return compliance_result
+            if compliance_result:
+                return {
+                    "recommendations": [
+                        {
+                            "field_name": issue.field_name,
+                            "current_naming": issue.current_naming,
+                            "suggested_naming": issue.suggested_naming,
+                            "severity": issue.severity,
+                            "description": issue.description,
+                            "rule_violated": issue.rule_violated
+                        }
+                        for issue in compliance_result.naming_issues
+                    ]
+                }
+            else:
+                return {"recommendations": []}
             
         except Exception as e:
             logger.error("Failed to get recommendations", service=service_name, error=str(e))

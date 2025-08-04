@@ -52,12 +52,12 @@ class ConsistencyReportResponse(BaseModel):
     summary: Dict[str, int]
 
 
-class FHIRRecommendationResponse(BaseModel):
+class StyleGuideRecommendationResponse(BaseModel):
     recommendation_id: str
     field_name: str
     current_usage: List[str]
     recommended_name: str
-    fhir_path: str
+    rule_violated: str
     impact_level: str
     services_affected: List[str]
     implementation_notes: str
@@ -227,62 +227,72 @@ def create_api_router(platform) -> APIRouter:
             logger.error("Failed to get report", report_id=report_id, error=str(e))
             raise HTTPException(status_code=500, detail="Failed to retrieve report")
     
-    @router.get("/fhir/recommendations", response_model=List[FHIRRecommendationResponse])
-    async def get_fhir_recommendations():
-        """Get FHIR compliance recommendations."""
+    @router.get("/style-guide/recommendations", response_model=List[StyleGuideRecommendationResponse])
+    async def get_style_guide_recommendations():
+        """Get API style guide compliance recommendations."""
         try:
-            # Run analysis to get recommendations
-            services = await platform.discovery.discover_services()
-            specs = await platform.harvester.harvest_specs(services)
-            report = await platform.analyzer.analyze_consistency(specs)
-            recommendations = await platform.fhir_mapper.generate_recommendations(report)
-            
-            # Convert to response format
-            response_recommendations = []
-            for rec in recommendations:
-                response_recommendations.append(FHIRRecommendationResponse(
-                    recommendation_id=rec.recommendation_id,
-                    field_name=rec.field_name,
-                    current_usage=rec.current_usage,
-                    recommended_name=rec.recommended_name,
-                    fhir_path=rec.fhir_mapping.fhir_path,
-                    impact_level=rec.impact_level,
-                    services_affected=rec.services_affected,
-                    implementation_notes=rec.implementation_notes
-                ))
-            
-            logger.info("Retrieved FHIR recommendations", count=len(response_recommendations))
-            return response_recommendations
+            # Get cached compliance data
+            if hasattr(platform, 'compliance_analyzer') and platform.compliance_analyzer:
+                recommendations = []
+                for cache_key, overview in platform.compliance_analyzer.compliance_cache.items():
+                    # Convert naming issues to recommendations
+                    for issue in overview.naming_issues:
+                        recommendations.append(StyleGuideRecommendationResponse(
+                            recommendation_id=f"{overview.service_name}-{issue.field_name}",
+                            field_name=issue.field_name,
+                            current_usage=[issue.current_naming],
+                            recommended_name=issue.suggested_naming,
+                            rule_violated=issue.rule_violated,
+                            impact_level=issue.severity,
+                            services_affected=[overview.service_name],
+                            implementation_notes=issue.description
+                        ))
+                
+                logger.info("Retrieved style guide recommendations", count=len(recommendations))
+                return recommendations
+            else:
+                return []
         
         except Exception as e:
-            logger.error("Failed to get FHIR recommendations", error=str(e))
+            logger.error("Failed to get style guide recommendations", error=str(e))
             raise HTTPException(status_code=500, detail="Failed to retrieve recommendations")
     
-    @router.get("/fhir/compliance-score")
+    @router.get("/style-guide/compliance-score")
     async def get_compliance_score():
-        """Get overall FHIR compliance score."""
+        """Get overall API style guide compliance score."""
         try:
-            # Get all fields from current specs
-            services = await platform.discovery.discover_services()
-            specs = await platform.harvester.harvest_specs(services)
-            
-            # Extract all fields
-            all_fields = []
-            for spec in specs:
-                fields = platform.analyzer._extract_fields(spec)
-                all_fields.extend(fields)
-            
-            # Calculate compliance score
-            score = await platform.fhir_mapper.calculate_compliance_score(all_fields)
-            
-            return {
-                "overall_score": score.overall_score,
-                "category_scores": score.category_scores,
-                "total_fields": score.total_fields,
-                "compliant_fields": score.compliant_fields,
-                "recommendations_count": score.recommendations_count,
-                "timestamp": datetime.utcnow().isoformat()
-            }
+            # Get cached compliance data
+            if hasattr(platform, 'compliance_analyzer') and platform.compliance_analyzer:
+                total_score = 0
+                service_count = 0
+                total_fields = 0
+                compliant_fields = 0
+                
+                for cache_key, overview in platform.compliance_analyzer.compliance_cache.items():
+                    total_score += overview.compliance_percentage
+                    service_count += 1
+                    total_fields += overview.total_endpoints
+                    compliant_fields += int(overview.total_endpoints * overview.compliance_percentage / 100)
+                
+                average_score = total_score / service_count if service_count > 0 else 0
+                
+                return {
+                    "overall_score": round(average_score, 1),
+                    "total_fields": total_fields,
+                    "compliant_fields": compliant_fields,
+                    "non_compliant_fields": total_fields - compliant_fields,
+                    "services_analyzed": service_count,
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            else:
+                return {
+                    "overall_score": 0,
+                    "total_fields": 0,
+                    "compliant_fields": 0,
+                    "non_compliant_fields": 0,
+                    "services_analyzed": 0,
+                    "timestamp": datetime.utcnow().isoformat()
+                }
         
         except Exception as e:
             logger.error("Failed to get compliance score", error=str(e))
@@ -297,12 +307,20 @@ def create_api_router(platform) -> APIRouter:
             # Run harvest
             result = await platform.run_harvest()
             
+            # Calculate total issues from compliance summary
+            compliance_summary = result.get("compliance_summary")
+            total_issues = 0
+            if compliance_summary:
+                total_issues = (compliance_summary.critical_issues + 
+                              compliance_summary.major_issues + 
+                              compliance_summary.minor_issues)
+            
             return {
                 "status": "completed",
                 "services_discovered": len(result["services"]),
                 "specs_harvested": len(result["specs"]),
-                "issues_found": len(result["report"].issues),
-                "recommendations_generated": len(result["recommendations"]),
+                "issues_found": total_issues,
+                "recommendations_generated": len(result["compliance_overviews"]),
                 "timestamp": datetime.utcnow().isoformat()
             }
         
@@ -365,7 +383,7 @@ def create_api_router(platform) -> APIRouter:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>API Governance Platform - FHIR Compliance Dashboard</title>
+    <title>API Governance Platform - Style Guide Compliance Dashboard</title>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -424,7 +442,7 @@ def create_api_router(platform) -> APIRouter:
                     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
                         <div className="text-center">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                            <p className="text-gray-600">Loading FHIR compliance dashboard...</p>
+                            <p className="text-gray-600">Loading API governance dashboard...</p>
                         </div>
                     </div>
                 );
@@ -438,7 +456,7 @@ def create_api_router(platform) -> APIRouter:
                                 🩸 API Governance Platform
                             </h1>
                             <p className="mt-2 text-gray-600">
-                                FHIR R4 Compliance Monitoring for Blood Banking Microservices
+                                API Style Guide Compliance Monitoring for Microservices
                             </p>
                         </div>
                     </div>
@@ -650,5 +668,55 @@ def create_api_router(platform) -> APIRouter:
         except Exception as e:
             logger.error("Failed to serve error details window", error=str(e))
             raise HTTPException(status_code=500, detail="Failed to load error details window")
+    
+    @router.get("/compliance/comprehensive-export")
+    async def get_comprehensive_compliance_data():
+        """Get comprehensive compliance data for all services with violation details."""
+        try:
+            if hasattr(platform, 'compliance_analyzer') and platform.compliance_analyzer:
+                comprehensive_data = []
+                
+                for cache_key, overview in platform.compliance_analyzer.compliance_cache.items():
+                    # Get detailed naming and error data
+                    naming_details = platform.compliance_analyzer.get_service_naming_details(
+                        overview.service_name, overview.namespace
+                    ) or []
+                    
+                    error_details = platform.compliance_analyzer.get_service_error_details(
+                        overview.service_name, overview.namespace
+                    ) or []
+                    
+                    comprehensive_data.append({
+                        "service_name": overview.service_name,
+                        "namespace": overview.namespace,
+                        "total_endpoints": overview.total_endpoints,
+                        "inconsistent_naming_count": overview.inconsistent_naming_count,
+                        "inconsistent_error_count": overview.inconsistent_error_count,
+                        "compliance_percentage": overview.compliance_percentage,
+                        "openapi_url": overview.openapi_url,
+                        "last_analyzed": overview.last_analyzed.isoformat(),
+                        "naming_violations": naming_details,
+                        "error_violations": error_details
+                    })
+                
+                return {
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "total_services": len(comprehensive_data),
+                    "total_naming_issues": sum(s["inconsistent_naming_count"] for s in comprehensive_data),
+                    "total_error_issues": sum(s["inconsistent_error_count"] for s in comprehensive_data),
+                    "services": comprehensive_data
+                }
+            else:
+                return {
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "total_services": 0,
+                    "total_naming_issues": 0,
+                    "total_error_issues": 0,
+                    "services": []
+                }
+                
+        except Exception as e:
+            logger.error("Failed to get comprehensive compliance data", error=str(e))
+            raise HTTPException(status_code=500, detail="Failed to retrieve comprehensive compliance data")
 
     return router

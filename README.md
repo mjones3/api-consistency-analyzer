@@ -5,15 +5,15 @@
 [![Helm Chart](https://img.shields.io/badge/helm-v1.0.0-blue)](https://github.com/your-org/microservices-api-governance/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A comprehensive microservices API governance platform that automatically discovers Spring Boot services through Istio service mesh, harvests OpenAPI specifications, analyzes field naming inconsistencies, and provides FHIR-compliant standardization recommendations.
+A comprehensive microservices API governance platform that automatically discovers Spring Boot services through Istio service mesh, harvests OpenAPI specifications, analyzes API compliance against customizable style guides, and provides standardization recommendations.
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Istio Mesh    │    │  API Governance │    │   FHIR Mapper   │
-│                 │───▶│    Platform     │───▶│                 │
-│ Spring Services │    │                 │    │  Standardizer   │
+│   Istio Mesh    │    │  API Governance │    │ Style Guide     │
+│                 │───▶│    Platform     │───▶│ Compliance      │
+│ Spring Services │    │                 │    │ Analyzer        │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
          ▼                       ▼                       ▼
@@ -23,395 +23,678 @@ A comprehensive microservices API governance platform that automatically discove
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-## 🚀 Quick Start
+## Core Features
+
+### Service Discovery
+- **Automatic Discovery**: Discovers Spring Boot services through Istio service mesh integration
+- **Health Monitoring**: Continuous health checking of discovered services
+- **Namespace Filtering**: Configurable namespace targeting for service discovery
+- **Label-based Selection**: Service filtering based on Kubernetes labels
+
+### API Specification Harvesting
+- **OpenAPI Collection**: Automatically harvests OpenAPI 3.0 specifications from discovered services
+- **Concurrent Processing**: Parallel harvesting with configurable concurrency limits
+- **Persistent Storage**: Stores harvested specifications with versioning and timestamps
+- **Error Handling**: Robust error handling with retry mechanisms
+
+### Style Guide Compliance Analysis
+- **Spectral Integration**: Uses Spectral for OpenAPI specification validation
+- **Customizable Rules**: Configurable style guide rules via .spectral.yml
+- **Naming Convention Validation**: Enforces camelCase, kebab-case, and other naming standards
+- **Error Response Standards**: Validates required error response codes (400, 500, etc.)
+- **Documentation Requirements**: Ensures proper API documentation standards
+
+### Reporting and Dashboard
+- **Real-time Dashboard**: Web-based dashboard showing compliance scores and recommendations
+- **Detailed Reports**: Comprehensive compliance reports with line-by-line analysis
+- **Export Functionality**: JSON export of compliance data and recommendations
+- **Historical Tracking**: Tracks compliance improvements over time
+
+## Quick Start
 
 ### Prerequisites
 - Kubernetes cluster (v1.28+) with Istio 1.19+ installed
 - kubectl configured and cluster accessible
 - Docker (for local development)
-- curl (for testing endpoints)
 
-### Kubernetes Deployment (Recommended)
+### Kubernetes Deployment
 
-1. **Clone the repository**
+1. **Clone and setup**
 ```bash
 git clone https://github.com/your-org/microservices-api-governance.git
 cd microservices-api-governance
-```
-
-2. **Set up local Istio environment**
-```bash
 ./scripts/setup-istio-stable.sh
 ```
 
-3. **Build and deploy everything to Kubernetes**
+2. **Build and deploy**
 ```bash
 ./scripts/build-services.sh
 ./scripts/deploy-kubernetes.sh
 ```
 
-4. **Access services with enhanced monitoring**
+3. **Access services**
 ```bash
 ./port-forward-k8s.sh
-```
-
-5. **Quick access to all dashboards**
-```bash
 ./local_access_guide.sh
 ```
 
-### Local Development (Alternative)
+## API Reference
 
-1. **Build Docker images**
-```bash
-./scripts/build-services.sh
+### Core API Endpoints
+
+#### Service Discovery
+
+**GET /api/v1/discovered-services**
+- **Description**: List all discovered services with their metadata
+- **Parameters**: 
+  - `namespace` (optional): Filter by namespace
+- **Response Format**:
+```json
+[
+  {
+    "name": "legacy-donor-service",
+    "namespace": "api",
+    "labels": {
+      "app": "legacy-donor-service",
+      "version": "v1"
+    },
+    "endpoints": ["http://legacy-donor-service:8081"],
+    "health_endpoint": "http://legacy-donor-service:8081/actuator/health",
+    "openapi_endpoint": "http://legacy-donor-service:8081/v3/api-docs",
+    "istio_sidecar": true,
+    "service_version": "v1"
+  }
+]
 ```
 
-2. **Run with Docker Compose**
-```bash
-docker-compose up -d
+**GET /api/v1/services/{service_name}**
+- **Description**: Get detailed information about a specific service
+- **Parameters**:
+  - `service_name` (required): Name of the service
+  - `namespace` (optional): Service namespace (default: "default")
+- **Response Format**:
+```json
+{
+  "service": {
+    "name": "legacy-donor-service",
+    "namespace": "api",
+    "labels": {...},
+    "endpoints": [...],
+    "health_endpoint": "...",
+    "openapi_endpoint": "...",
+    "istio_sidecar": true,
+    "service_version": "v1"
+  },
+  "istio_config": {
+    "virtual_services": [...],
+    "destination_rules": [...],
+    "policies": [...]
+  },
+  "latest_spec": {
+    "service_name": "legacy-donor-service",
+    "namespace": "api",
+    "spec_url": "http://legacy-donor-service:8081/v3/api-docs",
+    "version": "v0",
+    "harvested_at": "2025-08-04T02:46:10.521288Z",
+    "is_valid": true,
+    "validation_errors": []
+  }
+}
 ```
 
-**If you encounter network conflicts:**
-```bash
-./scripts/fix-docker-networks.sh
-docker-compose up -d
+#### API Specifications
+
+**GET /api/v1/specs**
+- **Description**: List harvested API specifications
+- **Parameters**:
+  - `service_name` (optional): Filter by service name
+  - `namespace` (optional): Filter by namespace
+- **Response Format**:
+```json
+[
+  {
+    "service_name": "legacy-donor-service",
+    "namespace": "api",
+    "spec_url": "http://legacy-donor-service:8081/v3/api-docs",
+    "version": "v0",
+    "harvested_at": "2025-08-04T02:46:10.521288Z",
+    "is_valid": true,
+    "validation_errors": []
+  }
+]
 ```
 
-### Production Deployment
+#### Compliance Analysis
 
-1. **Deploy with Helm**
-```bash
-helm install api-governance ./helm/api-governance \
-  --namespace api-governance \
-  --create-namespace \
-  --values ./helm/api-governance/values-prod.yaml
+**GET /api/v1/compliance/overview**
+- **Description**: Get service compliance overview table data
+- **Response Format**:
+```json
+[
+  {
+    "service_name": "legacy-donor-service",
+    "namespace": "api",
+    "total_endpoints": 6,
+    "inconsistent_naming_count": 8,
+    "inconsistent_error_count": 12,
+    "compliance_percentage": 25.5,
+    "openapi_url": "http://legacy-donor-service:8081/v3/api-docs",
+    "last_analyzed": "2025-08-04T02:46:10.521288Z"
+  }
+]
 ```
 
-2. **Verify deployment**
-```bash
-kubectl get pods -n api-governance
-kubectl port-forward svc/api-governance 8080:80
+**GET /api/v1/compliance/naming/{service_name}**
+- **Description**: Get detailed naming inconsistencies for a service
+- **Parameters**:
+  - `service_name` (required): Name of the service
+  - `namespace` (optional): Service namespace (default: "api")
+- **Response Format**:
+```json
+[
+  {
+    "field_name": "donorId",
+    "current_naming": "donorId",
+    "suggested_naming": "donorId",
+    "endpoint": "/api/v1/donors/{donorId}",
+    "severity": "error",
+    "rule_violated": "arc-one-field-naming-camelcase",
+    "description": "Field 'donorId' should use camelCase naming convention"
+  }
+]
 ```
 
-## 📊 Features
-
-- **🔍 Automatic Service Discovery**: Discovers Spring Boot services through Istio service mesh
-- **📋 API Harvesting**: Collects OpenAPI specifications from discovered services
-- **🔍 Consistency Analysis**: Identifies field naming inconsistencies across services
-- **🏥 FHIR Compliance**: Provides healthcare-specific standardization recommendations
-- **📈 Monitoring & Metrics**: Prometheus metrics and health endpoints
-- **🚀 Production Ready**: Kubernetes deployment with Helm charts
-- **🛠️ Local Development**: Complete local development stack with Docker Compose
-
-## 📊 Monitoring & Observability
-
-### Service Mesh Visualization with Kiali
-Access the Kiali dashboard at http://localhost:20001/kiali/ to:
-- **Service Graph**: Visualize service-to-service communication
-- **Traffic Flow**: Monitor request rates, response times, and error rates
-- **Configuration**: Validate Istio configuration (VirtualServices, DestinationRules)
-- **Distributed Tracing**: View request traces across services
-- **Security**: Monitor mTLS status and security policies
-
-### Metrics & Dashboards with Grafana
-Access Grafana at http://localhost:3000/ (admin/admin) for:
-- **Istio Service Dashboard**: Service-level metrics and SLIs
-- **Istio Mesh Dashboard**: Overall mesh health and performance
-- **API Governance Metrics**: Custom dashboards for governance platform
-- **Spring Boot Dashboards**: Application-specific metrics
-
-### Raw Metrics with Prometheus
-Access Prometheus at http://localhost:9090/ for:
-- **Service Discovery**: Auto-discovered targets
-- **Custom Queries**: PromQL queries for specific metrics
-- **Alerting Rules**: Configure alerts for SLA violations
-- **Federation**: Aggregate metrics from multiple clusters
-
-### Key Metrics to Monitor
-```promql
-# API Governance Platform Metrics
-api_governance_services_discovered_total
-api_governance_harvest_duration_seconds
-api_governance_fhir_compliance_score
-api_governance_consistency_issues_total
-
-# Istio Service Mesh Metrics
-istio_requests_total
-istio_request_duration_milliseconds
-istio_tcp_connections_opened_total
-istio_tcp_connections_closed_total
-
-# Spring Boot Application Metrics
-http_server_requests_seconds_count
-jvm_memory_used_bytes
-jvm_gc_pause_seconds
+**GET /api/v1/compliance/errors/{service_name}**
+- **Description**: Get detailed error inconsistencies for a service
+- **Parameters**:
+  - `service_name` (required): Name of the service
+  - `namespace` (optional): Service namespace (default: "api")
+- **Response Format**:
+```json
+[
+  {
+    "endpoint": "/api/v1/donors",
+    "method": "POST",
+    "missing_responses": ["400", "500"],
+    "severity": "warning",
+    "rule_violated": "arc-one-error-response-400",
+    "description": "Missing 400 Bad Request response"
+  }
+]
 ```
 
-## 🔧 Configuration
+#### Style Guide Recommendations
+
+**GET /api/v1/style-guide/recommendations**
+- **Description**: Get API style guide compliance recommendations
+- **Response Format**:
+```json
+[
+  {
+    "recommendation_id": "legacy-donor-service-donorId",
+    "field_name": "donorId",
+    "current_usage": ["donorId"],
+    "recommended_name": "donorId",
+    "rule_violated": "arc-one-field-naming-camelcase",
+    "impact_level": "error",
+    "services_affected": ["legacy-donor-service"],
+    "implementation_notes": "Field 'donorId' should use camelCase naming convention"
+  }
+]
+```
+
+**GET /api/v1/style-guide/compliance-score**
+- **Description**: Get overall API style guide compliance score
+- **Response Format**:
+```json
+{
+  "overall_score": 67.8,
+  "total_fields": 45,
+  "compliant_fields": 31,
+  "non_compliant_fields": 14,
+  "services_analyzed": 2,
+  "timestamp": "2025-08-04T02:46:10.521288Z"
+}
+```
+
+#### Reports
+
+**GET /api/v1/reports/latest**
+- **Description**: Get the latest consistency report
+- **Response Format**:
+```json
+{
+  "report_id": "report-2025-08-04-024610",
+  "generated_at": "2025-08-04T02:46:10.521288Z",
+  "specs_analyzed": 2,
+  "total_fields": 45,
+  "issues": [
+    {
+      "issue_id": "naming-001",
+      "severity": "error",
+      "category": "naming",
+      "title": "Inconsistent field naming",
+      "description": "Field 'donorId' uses inconsistent naming across services",
+      "recommendation": "Standardize to camelCase: 'donorId'",
+      "affected_services": ["legacy-donor-service"]
+    }
+  ],
+  "summary": {
+    "critical": 3,
+    "major": 10,
+    "minor": 2
+  }
+}
+```
+
+**GET /api/v1/reports/{report_id}**
+- **Description**: Get a specific consistency report by ID
+- **Parameters**:
+  - `report_id` (required): Report identifier
+- **Response Format**: Same as latest report
+
+#### Harvest Operations
+
+**POST /api/v1/harvest/trigger**
+- **Description**: Trigger a manual harvest cycle
+- **Request Body**:
+```json
+{
+  "namespaces": ["api", "production"],
+  "force": true
+}
+```
+- **Response Format**:
+```json
+{
+  "status": "completed",
+  "services_discovered": 2,
+  "specs_harvested": 2,
+  "issues_found": 13,
+  "recommendations_generated": 2,
+  "timestamp": "2025-08-04T02:46:10.521288Z"
+}
+```
+
+**GET /api/v1/harvest/status**
+- **Description**: Get current harvest status
+- **Response Format**:
+```json
+{
+  "status": "operational",
+  "services_discovered": 2,
+  "specs_harvested": 2,
+  "success_rate": 1.0,
+  "last_harvest": "2025-08-04T02:46:10.521288Z"
+}
+```
+
+#### System Information
+
+**GET /api/v1/namespaces**
+- **Description**: Get list of monitored namespaces
+- **Response Format**:
+```json
+{
+  "monitored_namespaces": ["api", "api-governance", "default"],
+  "active_services": {
+    "api": 2,
+    "api-governance": 1,
+    "default": 0
+  },
+  "last_discovery": "2025-08-04T02:46:10.521288Z"
+}
+```
+
+### Health and Monitoring Endpoints
+
+**GET /health/**
+- **Description**: Basic health check endpoint
+- **Response Format**:
+```json
+{
+  "status": "healthy",
+  "timestamp": "2025-08-04T02:46:10.521288Z",
+  "version": "1.0.0"
+}
+```
+
+**GET /health/ready**
+- **Description**: Readiness probe for Kubernetes
+- **Response Format**:
+```json
+{
+  "status": "ready",
+  "checks": {
+    "kubernetes": "connected",
+    "database": "healthy",
+    "dependencies": "available"
+  },
+  "timestamp": "2025-08-04T02:46:10.521288Z"
+}
+```
+
+**GET /health/live**
+- **Description**: Liveness probe for Kubernetes
+- **Response Format**:
+```json
+{
+  "status": "alive",
+  "uptime": 3600,
+  "memory_usage": "256MB",
+  "timestamp": "2025-08-04T02:46:10.521288Z"
+}
+```
+
+**GET /health/metrics**
+- **Description**: Prometheus metrics endpoint
+- **Response Format**: Prometheus text format
+```
+# HELP api_governance_services_discovered_total Total number of services discovered
+# TYPE api_governance_services_discovered_total counter
+api_governance_services_discovered_total{namespace="api"} 2
+
+# HELP api_governance_harvest_duration_seconds Time spent harvesting API specs
+# TYPE api_governance_harvest_duration_seconds histogram
+api_governance_harvest_duration_seconds_bucket{le="0.1"} 0
+api_governance_harvest_duration_seconds_bucket{le="0.5"} 1
+api_governance_harvest_duration_seconds_bucket{le="1.0"} 2
+```
+
+### Web Interface Endpoints
+
+**GET /**
+- **Description**: Main API governance dashboard
+- **Response**: HTML dashboard interface
+
+**GET /recommendations/{service_name}**
+- **Description**: Service-specific recommendations page
+- **Parameters**:
+  - `service_name` (required): Name of the service
+- **Response**: HTML recommendations interface
+
+**GET /compliance/naming/{service_name}/window**
+- **Description**: Naming inconsistencies detail window
+- **Parameters**:
+  - `service_name` (required): Name of the service
+- **Response**: HTML detail window
+
+**GET /compliance/errors/{service_name}/window**
+- **Description**: Error inconsistencies detail window
+- **Parameters**:
+  - `service_name` (required): Name of the service
+- **Response**: HTML detail window
+
+## Export Formats
+
+### Comprehensive Compliance Export
+
+**GET /api/v1/compliance/comprehensive-export**
+- **Description**: Get comprehensive compliance data for all services with violation details
+- **Response Format**:
+```json
+{
+  "export_metadata": {
+    "generated_at": "2025-08-04T02:46:10.521288Z",
+    "export_type": "comprehensive_compliance",
+    "version": "1.0.0",
+    "services_included": 2
+  },
+  "services": [
+    {
+      "service_name": "legacy-donor-service",
+      "namespace": "api",
+      "compliance_overview": {
+        "total_endpoints": 6,
+        "compliance_percentage": 25.5,
+        "last_analyzed": "2025-08-04T02:46:10.521288Z"
+      },
+      "naming_violations": [
+        {
+          "field_name": "donorId",
+          "current_naming": "donorId",
+          "suggested_naming": "donorId",
+          "endpoint": "/api/v1/donors/{donorId}",
+          "severity": "error",
+          "rule_violated": "arc-one-field-naming-camelcase",
+          "description": "Field 'donorId' should use camelCase naming convention"
+        }
+      ],
+      "error_violations": [
+        {
+          "endpoint": "/api/v1/donors",
+          "method": "POST",
+          "missing_responses": ["400", "500"],
+          "severity": "warning",
+          "rule_violated": "arc-one-error-response-400",
+          "description": "Missing 400 Bad Request response"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total_services": 2,
+    "average_compliance": 67.8,
+    "total_violations": 15,
+    "violations_by_severity": {
+      "error": 3,
+      "warning": 10,
+      "info": 2
+    }
+  }
+}
+```
+
+### Service Recommendations Export
+
+When exporting from the recommendations page, the format is:
+```json
+{
+  "service_name": "legacy-donor-service",
+  "compliance_score": 25.5,
+  "total_fields": 15,
+  "compliant_fields": 4,
+  "recommendations": [
+    {
+      "field_name": "donorId",
+      "current_naming": "donorId",
+      "suggested_naming": "donorId",
+      "severity": "error",
+      "description": "Field 'donorId' should use camelCase naming convention",
+      "rule_violated": "arc-one-field-naming-camelcase"
+    }
+  ],
+  "generated_at": "2025-08-04T02:46:10.521288Z"
+}
+```
+
+## Configuration
 
 ### Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `HARVEST_INTERVAL_HOURS` | `6` | Hours between harvest cycles |
-| `MAX_CONCURRENT_REQUESTS` | `10` | Maximum concurrent API requests |
-| `KUBERNETES_NAMESPACES` | `default,api-governance` | Comma-separated list of namespaces to scan |
-| `FHIR_COMPLIANCE_MODE` | `true` | Enable FHIR compliance checking |
+| `HARVEST_INTERVAL_HOURS` | `6` | Hours between automatic harvest cycles |
+| `MAX_CONCURRENT_REQUESTS` | `10` | Maximum concurrent API requests during harvesting |
+| `KUBERNETES_NAMESPACES` | `api,api-governance,default` | Comma-separated list of namespaces to scan |
 | `LOG_LEVEL` | `INFO` | Logging level (DEBUG, INFO, WARNING, ERROR) |
-| `METRICS_ENABLED` | `true` | Enable Prometheus metrics |
+| `METRICS_ENABLED` | `true` | Enable Prometheus metrics collection |
+| `HEALTH_CHECK_ENABLED` | `true` | Enable service health checking |
 | `ENVIRONMENT` | `kubernetes` | Environment mode (development, kubernetes, production) |
+| `SERVICE_LABEL_APP` | `spring-boot` | Label selector for service discovery |
+| `STORAGE_PATH` | `/data/api-specs` | Path for storing harvested specifications |
+| `RUN_MODE` | `continuous` | Run mode (continuous, single) |
 
-### ConfigMap Configuration
+### Spectral Configuration
+
+The system uses `.spectral.yml` for defining API style guide rules:
+
+```yaml
+extends: ["@stoplight/spectral-openapi"]
+
+rules:
+  # Field naming conventions
+  arc-one-field-naming-camelcase:
+    description: "Field names should use camelCase convention"
+    given: "$.paths[*][*].responses[*].content[*].schema..properties[*]~"
+    severity: error
+    then:
+      function: pattern
+      functionOptions:
+        match: "^[a-z][a-zA-Z0-9]*$"
+
+  # Path naming conventions
+  arc-one-path-kebab-case:
+    description: "Path segments should use kebab-case"
+    given: "$.paths[*]~"
+    severity: warn
+    then:
+      function: pattern
+      functionOptions:
+        match: "^(/[a-z0-9-]+(\{[a-zA-Z0-9]+\})?)*/?$"
+
+  # Required error responses
+  arc-one-error-response-400:
+    description: "All endpoints should define 400 Bad Request response"
+    given: "$.paths[*][*].responses"
+    severity: warn
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          type: object
+          required: ["400"]
+
+  arc-one-error-response-500:
+    description: "All endpoints should define 500 Internal Server Error response"
+    given: "$.paths[*][*].responses"
+    severity: warn
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          type: object
+          required: ["500"]
+```
+
+## Deployment
+
+### Kubernetes ConfigMap
 
 ```yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: api-governance-config
+  namespace: api-governance
 data:
-  config.yaml: |
-    discovery:
-      namespaces: ["default", "production", "staging"]
-      labels:
-        app: spring-boot
-    harvester:
-      concurrent_requests: 10
-      timeout: 30
-    fhir:
-      compliance_mode: true
-      mappings_file: /config/fhir-mappings.yaml
+  ENVIRONMENT: kubernetes
+  HARVEST_INTERVAL_HOURS: "2"
+  HEALTH_CHECK_ENABLED: "true"
+  KUBERNETES_NAMESPACES: api,api-governance,default
+  LOG_LEVEL: INFO
+  MAX_CONCURRENT_REQUESTS: "10"
+  METRICS_ENABLED: "true"
+  RUN_MODE: continuous
+  SERVICE_LABEL_APP: spring-boot
+  STORAGE_PATH: /data/api-specs
 ```
 
-## 📚 API Reference & Endpoints
+### Service Labels
 
-### 🚀 API Governance Platform Endpoints
-| Endpoint | Method | Description | Example |
-|----------|--------|-------------|---------|
-| `/` | GET | Main FHIR Compliance Dashboard | http://localhost:8080/ |
-| `/health/` | GET | Health check | http://localhost:8080/health/ |
-| `/api/v1/discovered-services` | GET | List discovered services | http://localhost:8080/api/v1/discovered-services |
-| `/api/v1/reports/latest` | GET | Latest consistency report | http://localhost:8080/api/v1/reports/latest |
-| `/api/v1/fhir/recommendations` | GET | FHIR compliance recommendations | http://localhost:8080/api/v1/fhir/recommendations |
-| `/api/v1/harvest/trigger` | POST | Trigger manual analysis | `curl -X POST http://localhost:8080/api/v1/harvest/trigger` |
-| `/metrics` | GET | Prometheus metrics | http://localhost:8090/metrics |
+Services must be labeled for discovery:
+```yaml
+metadata:
+  labels:
+    app: spring-boot
+    service-type: spring-boot
+    domain: api
+    compliance: style-guide
+```
 
-### 🔗 API Services
-| Service | Endpoint | Description | Example |
-|---------|----------|-------------|---------|
-| Legacy Donor Service | `/swagger-ui.html` | OpenAPI documentation | http://localhost:8081/swagger-ui.html |
-| Legacy Donor Service | `/actuator/health` | Spring Boot health | http://localhost:8081/actuator/health |
-| Modern Donor Service | `/swagger-ui.html` | OpenAPI documentation | http://localhost:8082/swagger-ui.html |
-| Modern Donor Service | `/actuator/health` | Spring Boot health | http://localhost:8082/actuator/health |
+## Monitoring and Observability
 
-### 🔍 Istio Service Mesh Monitoring
-| Dashboard | URL | Description | Features |
-|-----------|-----|-------------|----------|
-| **Kiali** | http://localhost:20001/kiali/ | Service mesh topology | Service graph, traffic flow, configuration validation |
-| **Grafana** | http://localhost:3000/ | Metrics dashboards | Performance metrics, service health, custom dashboards |
-| **Prometheus** | http://localhost:9090/ | Metrics collection | Raw metrics, queries, alerting rules |
-| **Istio Gateway** | http://localhost:15021/ | Gateway status | Ingress gateway health and configuration |
+### Key Metrics
 
-### 🔧 Useful Commands
+The platform exposes the following Prometheus metrics:
+
+- `api_governance_services_discovered_total`: Total services discovered by namespace
+- `api_governance_harvest_duration_seconds`: Time spent harvesting API specifications
+- `api_governance_compliance_score`: Current compliance score by service
+- `api_governance_violations_total`: Total violations by severity and type
+- `api_governance_harvest_success_rate`: Success rate of harvest operations
+
+### Health Checks
+
+The platform provides comprehensive health checking:
+- **Liveness**: Basic application health
+- **Readiness**: Dependency availability (Kubernetes API, storage)
+- **Service Health**: Individual service health monitoring
+
+## Development
+
+### Local Development Setup
+
 ```bash
-# Check all pods across namespaces
-kubectl get pods -A
+# Install dependencies
+pip install -r requirements-dev.txt
 
-# View API Governance logs
-kubectl logs -f deployment/api-governance -n api-governance
+# Run tests
+python -m pytest tests/ -v
 
-# Check Istio configuration
-kubectl get virtualservices,destinationrules -A
+# Run locally
+python -m src.main
 
-# Service mesh proxy status
-istioctl proxy-status
+# Build Docker image
+docker build -t api-governance:latest .
+```
 
-# Trigger manual analysis
+### Testing API Endpoints
+
+```bash
+# Health check
+curl -s http://localhost:8080/health/ | jq
+
+# List services
+curl -s http://localhost:8080/api/v1/discovered-services | jq
+
+# Get compliance overview
+curl -s http://localhost:8080/api/v1/compliance/overview | jq
+
+# Trigger harvest
 curl -X POST http://localhost:8080/api/v1/harvest/trigger \
   -H "Content-Type: application/json" \
-  -d '{"force": true}'
+  -d '{"force": true}' | jq
 
-# Check service mesh traffic
-kubectl exec -n istio-system deployment/kiali -- curl -s http://localhost:20001/kiali/api/namespaces/graph
+# Get recommendations
+curl -s http://localhost:8080/api/v1/style-guide/recommendations | jq
 ```
 
-## 🛠️ Scripts & Automation
-
-### Build Scripts
-```bash
-# Build all Docker images and load into Kind cluster
-./scripts/build-services.sh
-
-# Build specific service
-docker build -t api-governance:latest .
-docker build -t legacy-donor-service:latest ./examples/mock-services/legacy-donor-service/
-```
-
-### Deployment Scripts
-```bash
-# Full Kubernetes deployment with Istio
-./scripts/deploy-kubernetes.sh
-
-# Port forwarding for local access
-./port-forward-k8s.sh
-
-# Enhanced local access guide
-./local_access_guide.sh
-```
-
-### Monitoring Scripts
-```bash
-# Quick dashboard access
-./dashboard-access.sh
-
-# Check system status
-kubectl get pods -A
-kubectl get svc -A
-istioctl proxy-status
-```
-
-## 🧪 Testing
-
-```bash
-# Run unit tests
-python -m pytest tests/unit/ -v
-
-# Run integration tests
-python -m pytest tests/integration/ -v
-
-# Run with coverage
-python -m pytest --cov=src tests/
-
-# Test API endpoints
-curl -s http://localhost:8080/health/ | jq
-curl -s http://localhost:8080/api/v1/discovered-services | jq
-curl -s http://localhost:8080/api/v1/reports/latest | jq
-```
-
-## 🔍 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
-#### 1. API Governance Pod Not Starting
+1. **Services not discovered**: Check namespace configuration and service labels
+2. **Harvest failures**: Verify service health and OpenAPI endpoint availability
+3. **Compliance analysis errors**: Check Spectral configuration and rule syntax
+4. **Dashboard not loading**: Verify port forwarding and service accessibility
+
+### Debug Commands
+
 ```bash
 # Check pod status
 kubectl get pods -n api-governance
-kubectl describe pod -n api-governance -l app=api-governance
-
-# Check logs
 kubectl logs -f deployment/api-governance -n api-governance
 
-# Common fixes
-kubectl delete pod -n api-governance -l app=api-governance  # Restart pod
-kubectl rollout restart deployment/api-governance -n api-governance
-```
+# Verify service discovery
+kubectl get services -n api
+kubectl describe service legacy-donor-service -n api
 
-#### 2. Services Not Discovered
-```bash
-# Check if services are running
-kubectl get pods -n api
-kubectl get svc -n api
-
-# Check Istio sidecar injection
-kubectl get pods -n api -o jsonpath='{.items[*].spec.containers[*].name}'
-
-# Verify service mesh configuration
-istioctl proxy-config cluster -n api deployment/legacy-donor-service
-```
-
-#### 3. Port Forward Issues
-```bash
-# Kill existing port forwards
-pkill -f "kubectl.*port-forward"
-
-# Check if ports are in use
-lsof -i :8080
-lsof -i :20001
-
-# Restart port forwarding
-./port-forward-k8s.sh
-```
-
-#### 4. Istio Dashboard Not Accessible
-```bash
-# Check Istio installation
-kubectl get pods -n istio-system
-kubectl get svc -n istio-system
-
-# Verify Kiali installation
-kubectl get svc kiali -n istio-system
-kubectl port-forward svc/kiali 20001:20001 -n istio-system
-
-# Check Grafana
-kubectl get svc grafana -n istio-system
-kubectl port-forward svc/grafana 3000:3000 -n istio-system
-```
-
-#### 5. FHIR Compliance Analysis Not Working
-```bash
-# Check if services are accessible
+# Test service connectivity
 kubectl exec -n api-governance deployment/api-governance -- \
   curl -s http://legacy-donor-service.api.svc.cluster.local:8081/actuator/health
-
-# Trigger manual analysis
-curl -X POST http://localhost:8080/api/v1/harvest/trigger \
-  -H "Content-Type: application/json" \
-  -d '{"force": true}'
-
-# Check analysis logs
-kubectl logs -f deployment/api-governance -n api-governance | grep -i fhir
 ```
 
-### Debug Commands
-```bash
-# Check all resources
-kubectl get all -A
-
-# Describe problematic resources
-kubectl describe deployment api-governance -n api-governance
-kubectl describe svc api-governance -n api-governance
-
-# Check Istio configuration
-kubectl get virtualservices,destinationrules,gateways -A
-istioctl analyze -A
-
-# Network connectivity test
-kubectl run debug --image=curlimages/curl -it --rm -- sh
-# Inside the pod: curl http://api-governance.api-governance.svc.cluster.local/health/
-```
-
-## 📖 Documentation
-
-- [Deployment Guide](docs/DEPLOYMENT.md)
-- [Configuration Reference](docs/CONFIGURATION.md)
-- [API Reference](docs/API_REFERENCE.md)
-- [Development Guide](docs/DEVELOPMENT.md)
-- [Architecture Deep Dive](docs/ARCHITECTURE.md)
-- [Troubleshooting](docs/TROUBLESHOOTING.md)
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🗺️ Roadmap
-
-- [ ] GraphQL API support
-- [ ] Advanced FHIR R5 compliance
-- [ ] Machine learning-based inconsistency detection
-- [ ] Integration with API gateways
-- [ ] Real-time notifications
-- [ ] Multi-cluster support
-
-## 🆘 Support
-
-- 📧 Email: support@your-org.com
-- 💬 Slack: #api-governance
-- 🐛 Issues: [GitHub Issues](https://github.com/your-org/microservices-api-governance/issues)

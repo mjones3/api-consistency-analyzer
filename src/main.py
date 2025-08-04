@@ -142,7 +142,7 @@ def create_app() -> FastAPI:
     """Create FastAPI application."""
     app = FastAPI(
         title="Microservices API Governance Platform",
-        description="Automated API governance with Istio integration and FHIR compliance",
+        description="Automated API governance with Istio integration and customizable style guide compliance",
         version="1.0.0",
         lifespan=lifespan
     )
@@ -237,7 +237,7 @@ def create_app() -> FastAPI:
             // Fallback mock data in case API fails
             const mockServices = [
                 {
-                    serviceName: 'legacy-donor-service',
+                    serviceName: 'order-service',
                     namespace: 'api',
                     totalEndpoints: 12,
                     inconsistentNaming: 5,
@@ -247,13 +247,33 @@ def create_app() -> FastAPI:
                     lastAnalyzed: new Date().toISOString()
                 },
                 {
-                    serviceName: 'modern-donor-service',
+                    serviceName: 'collection-service',
                     namespace: 'api',
                     totalEndpoints: 8,
                     inconsistentNaming: 2,
                     inconsistentErrors: 1,
                     compliancePercentage: 85,
                     openApiUrl: 'http://localhost:8082/swagger-ui.html',
+                    lastAnalyzed: new Date().toISOString()
+                },
+                {
+                    serviceName: 'legacy-donor-service',
+                    namespace: 'api',
+                    totalEndpoints: 15,
+                    inconsistentNaming: 8,
+                    inconsistentErrors: 4,
+                    compliancePercentage: 65,
+                    openApiUrl: 'http://localhost:8083/swagger-ui.html',
+                    lastAnalyzed: new Date().toISOString()
+                },
+                {
+                    serviceName: 'modern-donor-service',
+                    namespace: 'api',
+                    totalEndpoints: 10,
+                    inconsistentNaming: 1,
+                    inconsistentErrors: 0,
+                    compliancePercentage: 95,
+                    openApiUrl: 'http://localhost:8084/swagger-ui.html',
                     lastAnalyzed: new Date().toISOString()
                 }
             ];
@@ -295,27 +315,196 @@ def create_app() -> FastAPI:
                 setServices(sorted);
             };
 
-            // Export to CSV functionality
-            const exportToCSV = () => {
-                const headers = ['Service Name', 'Endpoints', 'Inconsistent Names', 'Inconsistent Errors', 'Compliance %'];
-                const csvContent = [
-                    headers.join(','),
-                    ...services.map(service => [
-                        service.serviceName,
-                        service.totalEndpoints,
-                        service.inconsistentNaming,
-                        service.inconsistentErrors,
-                        service.compliancePercentage
-                    ].join(','))
-                ].join('\\n');
+            // Export to JSON functionality - Basic summary
+            const exportToJSON = () => {
+                const summaryData = {
+                    metadata: {
+                        reportType: "API Compliance Summary",
+                        generatedAt: new Date().toISOString(),
+                        totalServices: services.length,
+                        totalNamingIssues: services.reduce((sum, s) => sum + s.inconsistentNaming, 0),
+                        totalErrorIssues: services.reduce((sum, s) => sum + s.inconsistentErrors, 0),
+                        averageCompliance: services.length > 0 ? 
+                            Math.round(services.reduce((sum, s) => sum + s.compliancePercentage, 0) / services.length) : 0
+                    },
+                    complianceBreakdown: {
+                        highCompliance: services.filter(s => s.compliancePercentage >= 90).length,
+                        mediumCompliance: services.filter(s => s.compliancePercentage >= 70 && s.compliancePercentage < 90).length,
+                        lowCompliance: services.filter(s => s.compliancePercentage < 70).length
+                    },
+                    services: services.map(service => ({
+                        serviceName: service.serviceName,
+                        namespace: service.namespace,
+                        totalEndpoints: service.totalEndpoints,
+                        inconsistentNaming: service.inconsistentNaming,
+                        inconsistentErrors: service.inconsistentErrors,
+                        compliancePercentage: service.compliancePercentage,
+                        complianceLevel: service.compliancePercentage >= 90 ? 'high' : 
+                                       service.compliancePercentage >= 70 ? 'medium' : 'low',
+                        openApiUrl: service.openApiUrl,
+                        lastAnalyzed: service.lastAnalyzed
+                    }))
+                };
                 
-                const blob = new Blob([csvContent], { type: 'text/csv' });
+                const jsonContent = JSON.stringify(summaryData, null, 2);
+                const blob = new Blob([jsonContent], { type: 'application/json' });
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `api-compliance-report-${new Date().toISOString().split('T')[0]}.csv`;
+                a.download = `api-compliance-summary-${new Date().toISOString().split('T')[0]}.json`;
                 a.click();
                 window.URL.revokeObjectURL(url);
+            };
+
+            // Comprehensive export with all violation details as JSON
+            const exportComprehensiveReport = async () => {
+                try {
+                    setIsLoading(true);
+                    
+                    // Fetch detailed data for all services
+                    const detailedData = await Promise.all(
+                        services.map(async (service) => {
+                            const [namingResponse, errorResponse] = await Promise.all([
+                                fetch(`/api/v1/compliance/naming/${service.serviceName}?namespace=${service.namespace}`),
+                                fetch(`/api/v1/compliance/errors/${service.serviceName}?namespace=${service.namespace}`)
+                            ]);
+                            
+                            const namingData = namingResponse.ok ? await namingResponse.json() : { naming_inconsistencies: [] };
+                            const errorData = errorResponse.ok ? await errorResponse.json() : { error_inconsistencies: [] };
+                            
+                            return {
+                                ...service,
+                                namingDetails: namingData.naming_inconsistencies || [],
+                                errorDetails: errorData.error_inconsistencies || []
+                            };
+                        })
+                    );
+                    
+                    // Calculate violation totals by severity
+                    const calculateViolationTotals = (details) => {
+                        return {
+                            critical: details.filter(i => i.severity === 'critical').length,
+                            major: details.filter(i => i.severity === 'major').length,
+                            minor: details.filter(i => i.severity === 'minor').length,
+                            total: details.length
+                        };
+                    };
+                    
+                    // Generate comprehensive JSON report
+                    const comprehensiveReport = {
+                        metadata: {
+                            reportType: "API Governance Platform - Comprehensive Compliance Report",
+                            generatedAt: new Date().toISOString(),
+                            generatedBy: "API Governance Platform",
+                            version: "1.0.0"
+                        },
+                        summary: {
+                            totalServices: services.length,
+                            totalNamingIssues: services.reduce((sum, s) => sum + s.inconsistentNaming, 0),
+                            totalErrorIssues: services.reduce((sum, s) => sum + s.inconsistentErrors, 0),
+                            averageCompliance: services.length > 0 ? 
+                                Math.round(services.reduce((sum, s) => sum + s.compliancePercentage, 0) / services.length) : 0,
+                            complianceDistribution: {
+                                highCompliance: services.filter(s => s.compliancePercentage >= 90).length,
+                                mediumCompliance: services.filter(s => s.compliancePercentage >= 70 && s.compliancePercentage < 90).length,
+                                lowCompliance: services.filter(s => s.compliancePercentage < 70).length
+                            }
+                        },
+                        services: detailedData.map(service => {
+                            const namingTotals = calculateViolationTotals(service.namingDetails);
+                            const errorTotals = calculateViolationTotals(service.errorDetails);
+                            
+                            return {
+                                serviceInfo: {
+                                    serviceName: service.serviceName,
+                                    namespace: service.namespace,
+                                    totalEndpoints: service.totalEndpoints,
+                                    compliancePercentage: service.compliancePercentage,
+                                    complianceLevel: service.compliancePercentage >= 90 ? 'high' : 
+                                                   service.compliancePercentage >= 70 ? 'medium' : 'low',
+                                    openApiUrl: service.openApiUrl,
+                                    lastAnalyzed: service.lastAnalyzed
+                                },
+                                violationSummary: {
+                                    naming: {
+                                        total: service.inconsistentNaming,
+                                        bySeverity: namingTotals
+                                    },
+                                    errors: {
+                                        total: service.inconsistentErrors,
+                                        bySeverity: errorTotals
+                                    },
+                                    totalViolations: service.inconsistentNaming + service.inconsistentErrors
+                                },
+                                violations: {
+                                    namingInconsistencies: service.namingDetails.map(issue => ({
+                                        fieldName: issue.field_name,
+                                        currentNaming: issue.current_naming,
+                                        suggestedNaming: issue.suggested_naming,
+                                        endpoint: issue.endpoint,
+                                        severity: issue.severity,
+                                        ruleViolated: issue.rule_violated || null,
+                                        description: issue.description || null
+                                    })),
+                                    errorInconsistencies: service.errorDetails.map(issue => ({
+                                        issueType: issue.issue_type,
+                                        endpoint: issue.endpoint,
+                                        httpStatus: issue.http_status,
+                                        description: issue.description,
+                                        recommendation: issue.recommendation,
+                                        severity: issue.severity,
+                                        missingFields: issue.missing_fields || []
+                                    }))
+                                }
+                            };
+                        }),
+                        aggregatedMetrics: {
+                            violationsByType: {
+                                naming: {
+                                    critical: detailedData.reduce((sum, s) => sum + s.namingDetails.filter(i => i.severity === 'critical').length, 0),
+                                    major: detailedData.reduce((sum, s) => sum + s.namingDetails.filter(i => i.severity === 'major').length, 0),
+                                    minor: detailedData.reduce((sum, s) => sum + s.namingDetails.filter(i => i.severity === 'minor').length, 0)
+                                },
+                                errors: {
+                                    critical: detailedData.reduce((sum, s) => sum + s.errorDetails.filter(i => i.severity === 'critical').length, 0),
+                                    major: detailedData.reduce((sum, s) => sum + s.errorDetails.filter(i => i.severity === 'major').length, 0),
+                                    minor: detailedData.reduce((sum, s) => sum + s.errorDetails.filter(i => i.severity === 'minor').length, 0)
+                                }
+                            },
+                            topViolators: {
+                                mostNamingIssues: detailedData.sort((a, b) => b.inconsistentNaming - a.inconsistentNaming).slice(0, 3).map(s => ({
+                                    serviceName: s.serviceName,
+                                    issues: s.inconsistentNaming
+                                })),
+                                mostErrorIssues: detailedData.sort((a, b) => b.inconsistentErrors - a.inconsistentErrors).slice(0, 3).map(s => ({
+                                    serviceName: s.serviceName,
+                                    issues: s.inconsistentErrors
+                                })),
+                                lowestCompliance: detailedData.sort((a, b) => a.compliancePercentage - b.compliancePercentage).slice(0, 3).map(s => ({
+                                    serviceName: s.serviceName,
+                                    compliance: s.compliancePercentage
+                                }))
+                            }
+                        }
+                    };
+                    
+                    // Download the comprehensive JSON report
+                    const jsonContent = JSON.stringify(comprehensiveReport, null, 2);
+                    const blob = new Blob([jsonContent], { type: 'application/json' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `api-compliance-comprehensive-${new Date().toISOString().split('T')[0]}.json`;
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    
+                    setIsLoading(false);
+                    
+                } catch (error) {
+                    console.error('Failed to generate comprehensive report:', error);
+                    alert('Failed to generate comprehensive report. Please try again.');
+                    setIsLoading(false);
+                }
             };
 
             const averageCompliance = services.length > 0 
@@ -337,7 +526,7 @@ def create_app() -> FastAPI:
                     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
                         <div className="text-center">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                            <p className="text-gray-600">Loading FHIR compliance dashboard...</p>
+                            <p className="text-gray-600">Loading API governance dashboard...</p>
                         </div>
                     </div>
                 );
@@ -412,48 +601,138 @@ def create_app() -> FastAPI:
                             </div>
                         )}
                         
+
+
                         {/* Summary Cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
-                            <div className="bg-white rounded-lg shadow-sm border p-6">
-                                <p className="text-sm font-medium text-gray-600">Total Services</p>
-                                <p className="text-2xl font-bold text-gray-900">{services.length}</p>
+                        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
+                            <div className="bg-white rounded-lg shadow-sm border p-4">
+                                <div className="flex items-center">
+                                    <div className="p-2 bg-blue-100 rounded-lg">
+                                        <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                        </svg>
+                                    </div>
+                                    <div className="ml-4">
+                                        <p className="text-sm font-medium text-gray-600">Total Services</p>
+                                        <p className="text-2xl font-bold text-gray-900">{services.length}</p>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="bg-white rounded-lg shadow-sm border p-6">
-                                <p className="text-sm font-medium text-gray-600">Average Compliance</p>
-                                <p className={`text-2xl font-bold ${averageCompliance >= 90 ? 'text-green-600' : averageCompliance >= 70 ? 'text-yellow-600' : 'text-red-600'}`}>
-                                    {averageCompliance}%
-                                </p>
+                            
+                            <div className="bg-white rounded-lg shadow-sm border p-4">
+                                <div className="flex items-center">
+                                    <div className="p-2 bg-green-100 rounded-lg">
+                                        <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <div className="ml-4">
+                                        <p className="text-sm font-medium text-gray-600">High Compliance</p>
+                                        <p className="text-2xl font-bold text-green-600">
+                                            {services.filter(s => s.compliancePercentage >= 90).length}
+                                        </p>
+                                        <p className="text-xs text-gray-500">≥90%</p>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="bg-white rounded-lg shadow-sm border p-6">
-                                <p className="text-sm font-medium text-gray-600">High Compliance</p>
-                                <p className="text-2xl font-bold text-green-600">
-                                    {services.filter(s => s.compliancePercentage >= 90).length}
-                                </p>
+                            
+                            <div className="bg-white rounded-lg shadow-sm border p-4">
+                                <div className="flex items-center">
+                                    <div className="p-2 bg-yellow-100 rounded-lg">
+                                        <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                        </svg>
+                                    </div>
+                                    <div className="ml-4">
+                                        <p className="text-sm font-medium text-gray-600">Medium Compliance</p>
+                                        <p className="text-2xl font-bold text-yellow-600">
+                                            {services.filter(s => s.compliancePercentage >= 70 && s.compliancePercentage < 90).length}
+                                        </p>
+                                        <p className="text-xs text-gray-500">70-89%</p>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="bg-white rounded-lg shadow-sm border p-6">
-                                <p className="text-sm font-medium text-gray-600">Medium Compliance</p>
-                                <p className="text-2xl font-bold text-yellow-600">
-                                    {services.filter(s => s.compliancePercentage >= 70 && s.compliancePercentage < 90).length}
-                                </p>
+                            
+                            <div className="bg-white rounded-lg shadow-sm border p-4">
+                                <div className="flex items-center">
+                                    <div className="p-2 bg-red-100 rounded-lg">
+                                        <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <div className="ml-4">
+                                        <p className="text-sm font-medium text-gray-600">Low Compliance</p>
+                                        <p className="text-2xl font-bold text-red-600">
+                                            {services.filter(s => s.compliancePercentage < 70).length}
+                                        </p>
+                                        <p className="text-xs text-gray-500">&lt;70%</p>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="bg-white rounded-lg shadow-sm border p-6">
-                                <p className="text-sm font-medium text-gray-600">Low Compliance</p>
-                                <p className="text-2xl font-bold text-red-600">
-                                    {services.filter(s => s.compliancePercentage < 70).length}
-                                </p>
+                            
+                            <div className="bg-white rounded-lg shadow-sm border p-4">
+                                <div className="flex items-center">
+                                    <div className="p-2 bg-orange-100 rounded-lg">
+                                        <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                        </svg>
+                                    </div>
+                                    <div className="ml-4">
+                                        <p className="text-sm font-medium text-gray-600">Naming Issues</p>
+                                        <p className="text-2xl font-bold text-orange-600">
+                                            {services.reduce((sum, s) => sum + s.inconsistentNaming, 0)}
+                                        </p>
+                                        <p className="text-xs text-gray-500">Total</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="bg-white rounded-lg shadow-sm border p-4">
+                                <div className="flex items-center">
+                                    <div className="p-2 bg-purple-100 rounded-lg">
+                                        <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                        </svg>
+                                    </div>
+                                    <div className="ml-4">
+                                        <p className="text-sm font-medium text-gray-600">Error Issues</p>
+                                        <p className="text-2xl font-bold text-purple-600">
+                                            {services.reduce((sum, s) => sum + s.inconsistentErrors, 0)}
+                                        </p>
+                                        <p className="text-xs text-gray-500">Total</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-
-                        {/* Compliance Table */}
+                        
+                        {/* Main Compliance Dashboard Table */}
                         <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
                             <div className="px-6 py-4 border-b flex justify-between items-center">
                                 <h2 className="text-lg font-semibold">Service Compliance Overview</h2>
-                                <button 
-                                    onClick={exportToCSV}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
-                                >
-                                    📊 Export CSV
-                                </button>
+                                <div className="flex space-x-3">
+                                    <button 
+                                        onClick={exportToJSON}
+                                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center"
+                                    >
+                                        📊 Export JSON Summary
+                                    </button>
+                                    <button 
+                                        onClick={exportComprehensiveReport}
+                                        disabled={isLoading}
+                                        className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center"
+                                    >
+                                        {isLoading ? (
+                                            <>
+                                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                                Generating...
+                                            </>
+                                        ) : (
+                                            <>
+                                                📋 Full JSON Report
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
                             </div>
                             <div className="overflow-x-auto">
                                 <table className="min-w-full divide-y divide-gray-200">
@@ -466,75 +745,73 @@ def create_app() -> FastAPI:
                                                 Service Name {sortField === 'serviceName' && (sortDirection === 'asc' ? '↑' : '↓')}
                                             </th>
                                             <th 
-                                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
+                                                className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
                                                 onClick={() => sortServices('totalEndpoints')}
                                             >
                                                 Endpoints {sortField === 'totalEndpoints' && (sortDirection === 'asc' ? '↑' : '↓')}
                                             </th>
                                             <th 
-                                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
+                                                className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
                                                 onClick={() => sortServices('inconsistentNaming')}
                                             >
                                                 Inconsistent Names {sortField === 'inconsistentNaming' && (sortDirection === 'asc' ? '↑' : '↓')}
                                             </th>
                                             <th 
-                                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
+                                                className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
                                                 onClick={() => sortServices('inconsistentErrors')}
                                             >
                                                 Inconsistent Errors {sortField === 'inconsistentErrors' && (sortDirection === 'asc' ? '↑' : '↓')}
                                             </th>
                                             <th 
-                                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
+                                                className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
                                                 onClick={() => sortServices('compliancePercentage')}
                                             >
                                                 Compliance % {sortField === 'compliancePercentage' && (sortDirection === 'asc' ? '↑' : '↓')}
                                             </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
                                         {services.map((service, index) => (
                                             <tr key={index} className="hover:bg-gray-50">
                                                 <td className="px-6 py-4">
-                                                    <div>
-                                                        <div className="font-medium text-gray-900">{service.serviceName}</div>
-                                                        <div className="text-sm text-gray-500">{service.namespace}</div>
+                                                    <div className="font-medium text-gray-900 text-lg">
+                                                        {service.serviceName}
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4">
-                                                    <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm font-medium">
+                                                <td className="px-6 py-4 text-center">
+                                                    <span className="text-lg font-semibold text-gray-900">
                                                         {service.totalEndpoints}
                                                     </span>
                                                 </td>
-                                                <td className="px-6 py-4">
+                                                <td className="px-6 py-4 text-center">
                                                     {service.inconsistentNaming > 0 ? (
                                                         <button 
                                                             onClick={() => openDetailsWindow(service.serviceName, 'naming')}
-                                                            className="text-red-600 hover:text-red-800 font-medium underline"
+                                                            className="text-lg font-semibold text-red-600 hover:text-red-800 underline"
                                                         >
                                                             {service.inconsistentNaming} [details]
                                                         </button>
                                                     ) : (
-                                                        <span className="text-green-600 font-medium">0</span>
+                                                        <span className="text-lg font-semibold text-green-600">0</span>
                                                     )}
                                                 </td>
-                                                <td className="px-6 py-4">
+                                                <td className="px-6 py-4 text-center">
                                                     {service.inconsistentErrors > 0 ? (
                                                         <button 
                                                             onClick={() => openDetailsWindow(service.serviceName, 'errors')}
-                                                            className="text-red-600 hover:text-red-800 font-medium underline"
+                                                            className="text-lg font-semibold text-red-600 hover:text-red-800 underline"
                                                         >
                                                             {service.inconsistentErrors} [details]
                                                         </button>
                                                     ) : (
-                                                        <span className="text-green-600 font-medium">0</span>
+                                                        <span className="text-lg font-semibold text-green-600">0</span>
                                                     )}
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <div className="flex items-center">
-                                                        <div className="w-full bg-gray-200 rounded-full h-2 mr-3">
+                                                    <div className="flex items-center justify-center">
+                                                        <div className="w-32 bg-gray-200 rounded-full h-4 mr-3">
                                                             <div 
-                                                                className={`h-2 rounded-full ${
+                                                                className={`h-4 rounded-full transition-all duration-300 ${
                                                                     service.compliancePercentage >= 90 ? 'bg-green-500' : 
                                                                     service.compliancePercentage >= 70 ? 'bg-yellow-500' : 
                                                                     'bg-red-500'
@@ -542,7 +819,7 @@ def create_app() -> FastAPI:
                                                                 style={{width: `${service.compliancePercentage}%`}}
                                                             />
                                                         </div>
-                                                        <span className={`font-semibold text-sm ${
+                                                        <span className={`font-bold text-lg ${
                                                             service.compliancePercentage >= 90 ? 'text-green-600' : 
                                                             service.compliancePercentage >= 70 ? 'text-yellow-600' : 
                                                             'text-red-600'
@@ -550,16 +827,6 @@ def create_app() -> FastAPI:
                                                             {service.compliancePercentage}%
                                                         </span>
                                                     </div>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <a 
-                                                        href={service.openApiUrl} 
-                                                        target="_blank" 
-                                                        rel="noopener noreferrer" 
-                                                        className="text-blue-600 hover:text-blue-800 font-medium mr-4"
-                                                    >
-                                                        📋 OpenAPI
-                                                    </a>
                                                 </td>
                                             </tr>
                                         ))}
@@ -576,7 +843,7 @@ def create_app() -> FastAPI:
                                         <li>• <strong>Spectral Integration</strong> - OpenAPI style validation with custom rules</li>
                                         <li>• <strong>Naming Convention Analysis</strong> - camelCase, kebab-case validation</li>
                                         <li>• <strong>Error Response Consistency</strong> - Standard error schema enforcement</li>
-                                        <li>• <strong>Real-time Compliance Scoring</strong> - Average: {averageCompliance}%</li>
+                                        <li>• <strong>Real-time Compliance Scoring</strong> - Live progress bars</li>
                                         <li>• <strong>Sortable Dashboard</strong> - Click column headers to sort</li>
                                         <li>• <strong>CSV Export</strong> - Download compliance reports</li>
                                     </ul>

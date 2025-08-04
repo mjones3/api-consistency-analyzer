@@ -1,343 +1,272 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FHIR Compliance Recommendations - {{ service_name }}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>API Style Guide Recommendations - {{ service_name }}</title>
+
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      rel="stylesheet"
+    />
+
     <style>
-        .card-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
-        .severity-error { border-left: 4px solid #dc3545; background-color: #f8d7da; }
-        .severity-warning { border-left: 4px solid #ffc107; background-color: #fff3cd; }
-        .compliance-score { font-size: 2rem; font-weight: bold; }
-        .compliance-high { color: #28a745; }
-        .compliance-medium { color: #ffc107; }
-        .compliance-low { color: #dc3545; }
-        .field-name { font-family: 'Courier New', monospace; background-color: #f8f9fa; padding: 2px 6px; border-radius: 3px; }
-        .fhir-value { font-family: 'Courier New', monospace; background-color: #e7f3ff; padding: 2px 6px; border-radius: 3px; }
-        .line-number { font-family: 'Courier New', monospace; background-color: #fff3cd; padding: 2px 6px; border-radius: 3px; }
+      .card-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+      }
+      .severity-error {
+        border-left: 4px solid #dc3545;
+        background-color: #f8d7da;
+      }
+      .severity-warning {
+        border-left: 4px solid #ffc107;
+        background-color: #fff3cd;
+      }
+      .compliance-high {
+        color: #28a745;
+      }
+      .compliance-medium {
+        color: #ffc107;
+      }
+      .compliance-low {
+        color: #dc3545;
+      }
+      .field-name {
+        font-family: "Courier New", monospace;
+        background-color: #f8f9fa;
+        padding: 2px 6px;
+        border-radius: 3px;
+      }
+      .suggested-value {
+        font-family: "Courier New", monospace;
+        background-color: #e7f3ff;
+        padding: 2px 6px;
+        border-radius: 3px;
+      }
+      .line-number {
+        font-family: "Courier New", monospace;
+        background-color: #fff3cd;
+        padding: 2px 6px;
+        border-radius: 3px;
+      }
     </style>
-</head>
-<body class="bg-light">
-    <nav class="navbar navbar-dark" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-        <div class="container-fluid">
-            <a href="/" class="navbar-brand">
-                <i class="fas fa-arrow-left me-2"></i>
-                API Governance Platform
-            </a>
-            <span class="navbar-text">
-                <i class="fas fa-lightbulb me-1"></i>
-                FHIR Compliance Recommendations
-            </span>
-        </div>
+  </head>
+  <body>
+    <!-- Navigation -->
+    <nav
+      class="navbar navbar-expand-lg navbar-dark"
+      style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+    >
+      <div class="container">
+        <a class="navbar-brand" href="/">
+          <i class="fas fa-code-branch me-2"></i>
+          API Governance Platform
+        </a>
+        <span class="navbar-text">
+          <i class="fas fa-lightbulb me-1"></i>
+          API Style Guide Recommendations
+        </span>
+      </div>
     </nav>
 
-    <div class="container-fluid mt-4">
-        <!-- Service Header -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card shadow">
-                    <div class="card-header">
-                        <div class="row align-items-center">
-                            <div class="col-md-8">
-                                <h4 class="mb-0">
-                                    <i class="fas fa-cogs me-2"></i>
-                                    {{ service_name }}
-                                </h4>
-                                <small class="opacity-75">
-                                    <i class="fas fa-layer-group me-1"></i>
-                                    Namespace: {{ service.namespace }}
-                                </small>
-                            </div>
-                            <div class="col-md-4 text-end">
-                                <div class="compliance-score {{ 'compliance-high' if compliance_score >= 80 else 'compliance-medium' if compliance_score >= 50 else 'compliance-low' }}">
-                                    {{ compliance_score }}%
-                                </div>
-                                <small class="opacity-75">FHIR Compliance</small>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="d-flex align-items-center">
-                                    <i class="fas fa-list text-primary me-2"></i>
-                                    <div>
-                                        <div class="fw-bold">{{ total_fields }}</div>
-                                        <small class="text-muted">Total FHIR Fields</small>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="d-flex align-items-center">
-                                    <i class="fas fa-check-circle text-success me-2"></i>
-                                    <div>
-                                        <div class="fw-bold">{{ compliant_fields }}</div>
-                                        <small class="text-muted">Compliant Fields</small>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="d-flex align-items-center">
-                                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>
-                                    <div>
-                                        <div class="fw-bold">{{ total_fields - compliant_fields }}</div>
-                                        <small class="text-muted">Issues Found</small>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="progress mt-3" style="height: 8px;">
-                            <div class="progress-bar {{ 'bg-success' if compliance_score >= 80 else 'bg-warning' if compliance_score >= 50 else 'bg-danger' }}" 
-                                 style="width: {{ compliance_score }}%"></div>
-                        </div>
-                    </div>
-                </div>
+    <div class="container mt-4">
+      <!-- Service Header -->
+      <div class="row mb-4">
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header">
+              <h4 class="mb-0">
+                <i class="fas fa-cogs me-2"></i>
+                {{ service_name }}
+              </h4>
             </div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-4">
+                  <div class="text-center p-3 border rounded">
+                    <div
+                      class="h3 mb-1 {% if compliance_score >= 80 %}compliance-high{% elif compliance_score >= 60 %}compliance-medium{% else %}compliance-low{% endif %}"
+                    >
+                      {{ compliance_score }}%
+                    </div>
+                    <small class="opacity-75">Style Guide Compliance</small>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="text-center p-3 border rounded">
+                    <div>
+                      <div class="fw-bold">{{ total_fields }}</div>
+                      <small class="text-muted">Total API Fields</small>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="text-center p-3 border rounded">
+                    <div>
+                      <div class="fw-bold text-success">
+                        {{ compliant_fields }}
+                      </div>
+                      <small class="text-muted">Compliant Fields</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
+      </div>
 
-        <!-- Recommendations Table -->
-        <div class="row">
-            <div class="col-12">
-                <div class="card shadow">
-                    <div class="card-header">
-                        <h5 class="mb-0">
-                            <i class="fas fa-clipboard-list me-2"></i>
-                            FHIR Compliance Issues & Recommendations
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        {% if recommendations %}
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead class="table-dark">
-                                    <tr>
-                                        <th width="15%">Field Name</th>
-                                        <th width="12%">Current Type</th>
-                                        <th width="8%">Required</th>
-                                        <th width="12%">FHIR Type</th>
-                                        <th width="25%">FHIR Compliant Value</th>
-                                        <th width="8%">Line #</th>
-                                        <th width="10%">Severity</th>
-                                        <th width="10%">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for rec in recommendations %}
-                                    <tr class="severity-{{ rec.severity }}">
-                                        <td>
-                                            <span class="field-name">{{ rec.field_name }}</span>
-                                        </td>
-                                        <td>
-                                            <code>{{ rec.current_type }}</code>
-                                        </td>
-                                        <td>
-                                            <span class="badge {{ 'bg-success' if rec.current_required else 'bg-secondary' }}">
-                                                {{ 'Yes' if rec.current_required else 'No' }}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <code class="text-primary">{{ rec.required_type }}</code>
-                                        </td>
-                                        <td>
-                                            <span class="fhir-value">{{ rec.fhir_compliant_value }}</span>
-                                        </td>
-                                        <td>
-                                            {% if rec.openapi_line_number %}
-                                            <span class="line-number">{{ rec.openapi_line_number }}</span>
-                                            {% else %}
-                                            <span class="text-muted">-</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            <span class="badge {{ 'bg-danger' if rec.severity == 'error' else 'bg-warning' }}">
-                                                <i class="fas {{ 'fa-times-circle' if rec.severity == 'error' else 'fa-exclamation-triangle' }} me-1"></i>
-                                                {{ rec.severity.title() }}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <button class="btn btn-sm btn-outline-info" 
-                                                    data-bs-toggle="modal" 
-                                                    data-bs-target="#detailModal"
-                                                    onclick="showDetails('{{ rec.field_name }}', '{{ rec.issue_description }}', '{{ rec.action_required }}')">
-                                                <i class="fas fa-info-circle"></i>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                        {% else %}
-                        <div class="text-center py-5">
-                            <i class="fas fa-check-circle text-success" style="font-size: 4rem;"></i>
-                            <h4 class="mt-3 text-success">Fully FHIR Compliant!</h4>
-                            <p class="text-muted">This service meets all FHIR R4 requirements.</p>
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
+      <!-- Recommendations -->
+      {% if recommendations %}
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">
+            <i class="fas fa-clipboard-list me-2"></i>
+            API Style Guide Issues & Recommendations
+          </h5>
         </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th width="15%">Field Name</th>
+                  <th width="15%">Current Naming</th>
+                  <th width="15%">Suggested Naming</th>
+                  <th width="25%">Description</th>
+                  <th width="15%">Rule Violated</th>
+                  <th width="10%">Severity</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for rec in recommendations %}
+                <tr class="severity-{{ rec.severity }}">
+                  <td>
+                    <span class="field-name">{{ rec.field_name }}</span>
+                  </td>
+                  <td>
+                    <code>{{ rec.current_naming }}</code>
+                  </td>
+                  <td>
+                    <span class="suggested-value"
+                      >{{ rec.suggested_naming }}</span
+                    >
+                  </td>
+                  <td>
+                    <small>{{ rec.description }}</small>
+                  </td>
+                  <td>
+                    <small class="text-muted">{{ rec.rule_violated }}</small>
+                  </td>
+                  <td>
+                    <span
+                      class="badge {% if rec.severity == 'error' %}bg-danger{% else %}bg-warning{% endif %}"
+                    >
+                      {% if rec.severity == 'error' %}
+                      <i class="fas fa-exclamation-triangle"></i> Error {% else
+                      %} <i class="fas fa-exclamation-circle"></i> Warning {%
+                      endif %}
+                    </span>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <div class="card">
+        <div class="card-body">
+          <div class="text-center py-5">
+            <i
+              class="fas fa-check-circle text-success"
+              style="font-size: 4rem"
+            ></i>
+            <h4 class="mt-3 text-success">Fully Compliant!</h4>
+            <p class="text-muted">
+              This service meets all API style guide requirements.
+            </p>
+          </div>
+        </div>
+      </div>
+      {% endif %}
 
-        <!-- Quick Actions -->
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="card shadow">
-                    <div class="card-header">
-                        <h5 class="mb-0">
-                            <i class="fas fa-tools me-2"></i>
-                            Quick Actions
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-3">
-                                <a href="{{ service.openapi_endpoint }}" target="_blank" class="btn btn-outline-primary w-100">
-                                    <i class="fas fa-file-code me-2"></i>
-                                    View OpenAPI Spec
-                                </a>
-                            </div>
-                            <div class="col-md-3">
-                                <button class="btn btn-outline-success w-100" onclick="exportRecommendations()">
-                                    <i class="fas fa-download me-2"></i>
-                                    Export as JSON
-                                </button>
-                            </div>
-                            <div class="col-md-3">
-                                <button class="btn btn-outline-info w-100" onclick="copyToClipboard()">
-                                    <i class="fas fa-copy me-2"></i>
-                                    Copy Summary
-                                </button>
-                            </div>
-                            <div class="col-md-3">
-                                <a href="/" class="btn btn-outline-secondary w-100">
-                                    <i class="fas fa-arrow-left me-2"></i>
-                                    Back to Dashboard
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+      <!-- Actions -->
+      <div class="row mt-4">
+        <div class="col-12">
+          <div class="d-flex gap-2">
+            <button class="btn btn-primary" onclick="exportRecommendations()">
+              <i class="fas fa-download me-1"></i>
+              Export Report
+            </button>
+            <button class="btn btn-secondary" onclick="copyToClipboard()">
+              <i class="fas fa-copy me-1"></i>
+              Copy Summary
+            </button>
+            <a href="/" class="btn btn-outline-secondary">
+              <i class="fas fa-arrow-left me-1"></i>
+              Back to Dashboard
+            </a>
+          </div>
         </div>
-    </div>
+      </div>
 
-    <!-- Detail Modal -->
-    <div class="modal fade" id="detailModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="fas fa-info-circle me-2"></i>
-                        Field Details: <span id="modalFieldName"></span>
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <h6><i class="fas fa-exclamation-triangle text-warning me-2"></i>Issue Description:</h6>
-                        <p id="modalIssueDescription" class="text-muted"></p>
-                    </div>
-                    <div class="mb-3">
-                        <h6><i class="fas fa-wrench text-primary me-2"></i>Required Action:</h6>
-                        <p id="modalActionRequired" class="text-info"></p>
-                    </div>
-                    <div class="alert alert-info">
-                        <i class="fas fa-lightbulb me-2"></i>
-                        <strong>FHIR R4 Reference:</strong> 
-                        For detailed FHIR specifications, visit 
-                        <a href="https://hl7.org/fhir/R4/patient.html" target="_blank">HL7 FHIR R4 Patient Resource</a>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                </div>
-            </div>
+      <!-- Reference -->
+      <div class="row mt-4">
+        <div class="col-12">
+          <div class="alert alert-info">
+            <i class="fas fa-lightbulb me-2"></i>
+            <strong>Style Guide Reference:</strong>
+            These recommendations are based on your customizable API style guide
+            rules defined in the Spectral configuration.
+          </div>
         </div>
+      </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Show details in modal
-        function showDetails(fieldName, issueDescription, actionRequired) {
-            document.getElementById('modalFieldName').textContent = fieldName;
-            document.getElementById('modalIssueDescription').textContent = issueDescription;
-            document.getElementById('modalActionRequired').textContent = actionRequired;
-        }
+              // Export recommendations as JSON
+              function exportRecommendations() {
+                  const data = {
+                      service_name: "{{ service_name }}",
+                      compliance_score: {{ compliance_score }},
+                      total_fields: {{ total_fields }},
+                      compliant_fields: {{ compliant_fields }},
+                      recommendations: {{ recommendations | tojson }},
+                      generated_at: new Date().toISOString()
+                  };
 
-        // Export recommendations as JSON
-        async function exportRecommendations() {
-            try {
-                const response = await fetch(`/api/recommendations/{{ service_name }}`);
-                const data = await response.json();
-                
-                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `fhir-recommendations-{{ service_name }}-${new Date().toISOString().split('T')[0]}.json`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                
-                showToast('Recommendations exported successfully!');
-            } catch (error) {
-                console.error('Export failed:', error);
-                showToast('Export failed: ' + error.message, 'error');
-            }
-        }
+                  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `style-guide-recommendations-{{ service_name }}-${new Date().toISOString().split('T')[0]}.json`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+              }
 
-        // Copy summary to clipboard
-        function copyToClipboard() {
-            const summary = `FHIR Compliance Summary for {{ service_name }}:
-- Compliance Score: {{ compliance_score }}%
-- Total FHIR Fields: {{ total_fields }}
-- Compliant Fields: {{ compliant_fields }}
-- Issues Found: {{ total_fields - compliant_fields }}
+              // Copy summary to clipboard
+              function copyToClipboard() {
+                  const summary = `API Style Guide Summary for {{ service_name }}:
+      - Compliance Score: {{ compliance_score }}%
+      - Total API Fields: {{ total_fields }}
+      - Compliant Fields: {{ compliant_fields }}
+      - Issues Found: {{ total_fields - compliant_fields }}
+      - Generated: ${new Date().toLocaleString()}`;
 
-{% for rec in recommendations %}
-- {{ rec.field_name }}: {{ rec.issue_description }}
-{% endfor %}`;
-
-            navigator.clipboard.writeText(summary).then(() => {
-                showToast('Summary copied to clipboard!');
-            }).catch(err => {
-                console.error('Copy failed:', err);
-                showToast('Copy failed: ' + err.message, 'error');
-            });
-        }
-
-        // Show toast notification
-        function showToast(message, type = 'info') {
-            // Create toast element
-            const toastHtml = `
-                <div class="toast ${type === 'error' ? 'bg-danger text-white' : 'bg-success text-white'}" role="alert">
-                    <div class="toast-body">
-                        <i class="fas ${type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'} me-2"></i>
-                        ${message}
-                    </div>
-                </div>
-            `;
-            
-            // Add to page
-            const toastContainer = document.createElement('div');
-            toastContainer.className = 'position-fixed bottom-0 end-0 p-3';
-            toastContainer.innerHTML = toastHtml;
-            document.body.appendChild(toastContainer);
-            
-            // Show toast
-            const toast = new bootstrap.Toast(toastContainer.querySelector('.toast'));
-            toast.show();
-            
-            // Remove after hiding
-            toastContainer.querySelector('.toast').addEventListener('hidden.bs.toast', () => {
-                document.body.removeChild(toastContainer);
-            });
-        }
+                  navigator.clipboard.writeText(summary).then(() => {
+                      alert('Summary copied to clipboard!');
+                  });
+              }
     </script>
-</body>
+  </body>
 </html>
