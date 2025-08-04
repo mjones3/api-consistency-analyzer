@@ -17,14 +17,14 @@ echo ""
 echo "Press Ctrl+C to stop all port forwards"
 
 # Start port forwards in background
-kubectl port-forward svc/api-governance 8080:80 -n api-governance &
-kubectl port-forward svc/legacy-donor-service 8081:8081 -n api &
-kubectl port-forward svc/modern-donor-service 8082:8082 -n api &
+kubectl port-forward -n api service/api-governance 8080:80 &
+kubectl port-forward -n api service/legacy-donor-service 8080:80 &
+kubectl port-forward -n api service/modern-donor-service 8080:80 &
 
 # Istio dashboards (if available)
-kubectl port-forward svc/kiali 20001:20001 -n istio-system &
-kubectl port-forward svc/grafana 3000:3000 -n istio-system &
-kubectl port-forward svc/prometheus 9090:9090 -n istio-system &
+kubectl port-forward -n istio-system service/kiali 20001:20001  &
+#kubectl port-forward svc/grafana 3000:3000 -n istio-system &
+#kubectl port-forward svc/prometheus 9090:9090 -n istio-system &
 
 # Wait for all background jobs
 wait
