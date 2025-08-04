@@ -201,13 +201,13 @@ open web_ui_demo.html
 ### **3. API Endpoints**
 ```bash
 # Get services data
-GET /api/services?namespace=blood-banking
+GET /api/services?namespace=api
 
 # Trigger harvest
 POST /api/harvest
 
 # Export compliance report
-GET /api/export/compliance?namespace=blood-banking
+GET /api/export/compliance?namespace=api
 
 # Get service recommendations
 GET /api/recommendations/{service_name}

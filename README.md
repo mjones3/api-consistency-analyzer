@@ -196,7 +196,7 @@ data:
 | `/api/v1/harvest/trigger` | POST | Trigger manual analysis | `curl -X POST http://localhost:8080/api/v1/harvest/trigger` |
 | `/metrics` | GET | Prometheus metrics | http://localhost:8090/metrics |
 
-### 🩸 Blood Banking Services
+### 🔗 API Services
 | Service | Endpoint | Description | Example |
 |---------|----------|-------------|---------|
 | Legacy Donor Service | `/swagger-ui.html` | OpenAPI documentation | http://localhost:8081/swagger-ui.html |
@@ -309,14 +309,14 @@ kubectl rollout restart deployment/api-governance -n api-governance
 #### 2. Services Not Discovered
 ```bash
 # Check if services are running
-kubectl get pods -n blood-banking
-kubectl get svc -n blood-banking
+kubectl get pods -n api
+kubectl get svc -n api
 
 # Check Istio sidecar injection
-kubectl get pods -n blood-banking -o jsonpath='{.items[*].spec.containers[*].name}'
+kubectl get pods -n api -o jsonpath='{.items[*].spec.containers[*].name}'
 
 # Verify service mesh configuration
-istioctl proxy-config cluster -n blood-banking deployment/legacy-donor-service
+istioctl proxy-config cluster -n api deployment/legacy-donor-service
 ```
 
 #### 3. Port Forward Issues
@@ -351,7 +351,7 @@ kubectl port-forward svc/grafana 3000:3000 -n istio-system
 ```bash
 # Check if services are accessible
 kubectl exec -n api-governance deployment/api-governance -- \
-  curl -s http://legacy-donor-service.blood-banking.svc.cluster.local:8081/actuator/health
+  curl -s http://legacy-donor-service.api.svc.cluster.local:8081/actuator/health
 
 # Trigger manual analysis
 curl -X POST http://localhost:8080/api/v1/harvest/trigger \

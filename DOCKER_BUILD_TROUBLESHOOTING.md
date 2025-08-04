@@ -162,7 +162,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mock-legacy-service
-  namespace: blood-banking
+  namespace: api
 spec:
   replicas: 1
   selector:

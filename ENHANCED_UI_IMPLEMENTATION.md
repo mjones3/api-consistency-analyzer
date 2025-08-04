@@ -210,13 +210,13 @@ http://localhost:8080/
 ### **3. API Endpoints**
 ```bash
 # Get enhanced services data with FHIR analysis
-GET /api/services?namespace=blood-banking
+GET /api/services?namespace=api
 
 # Trigger harvest with FHIR compliance analysis
 POST /api/v1/harvest/trigger
 
 # Export enhanced compliance report
-GET /api/export/compliance?namespace=blood-banking
+GET /api/export/compliance?namespace=api
 ```
 
 ---

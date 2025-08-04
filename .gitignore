@@ -113,3 +113,10 @@ storage/
 dmypy.json
 examples/mock-services/legacy-donor-service/target/classes/com/arcone/legacy/controller/LegacyDonorController.class
 examples/mock-services/legacy-donor-service/target/classes/com/arcone/legacy/model/LegacyDonor.class
+containerd-2.0.0-linux-amd64.tar.gz
+containerd-2.0.0-linux-amd64.tar.gz.1
+containerd.tar.gz
+bin/containerd
+bin/containerd-shim-runc-v2
+bin/containerd-stress
+bin/ctr

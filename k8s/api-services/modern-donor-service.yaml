@@ -2,12 +2,12 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: modern-donor-service
-  namespace: blood-banking
+  namespace: api
   labels:
     app: modern-donor-service
     version: v1
     component: patient-management
-    domain: blood-banking
+    domain: api
     compliance: fhir-r4
     service-type: spring-boot
 spec:
@@ -22,7 +22,7 @@ spec:
         app: modern-donor-service
         version: v1
         component: patient-management
-        domain: blood-banking
+        domain: api
         compliance: fhir-r4
         service-type: spring-boot
       annotations:
@@ -84,11 +84,11 @@ apiVersion: v1
 kind: Service
 metadata:
   name: modern-donor-service
-  namespace: blood-banking
+  namespace: api
   labels:
     app: modern-donor-service
     service: modern-donor-service
-    domain: blood-banking
+    domain: api
     compliance: fhir-r4
     service-type: spring-boot
   annotations:
@@ -107,11 +107,11 @@ apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
   name: modern-donor-service
-  namespace: blood-banking
+  namespace: api
 spec:
   hosts:
     - modern-donor-service
-    - modern-donor-service.blood-banking.svc.cluster.local
+    - modern-donor-service.api.svc.cluster.local
   http:
     - match:
         - uri:
@@ -130,7 +130,7 @@ apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
 metadata:
   name: modern-donor-service
-  namespace: blood-banking
+  namespace: api
 spec:
   host: modern-donor-service
   trafficPolicy:
@@ -151,7 +151,7 @@ apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
   name: modern-donor-service
-  namespace: blood-banking
+  namespace: api
 spec:
   selector:
     matchLabels:

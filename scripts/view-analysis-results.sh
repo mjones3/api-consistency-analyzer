@@ -274,7 +274,7 @@ show_kubernetes_status() {
     
     echo ""
     log_highlight "BLOOD BANKING SERVICES:"
-    kubectl get pods -n blood-banking -o wide 2>/dev/null || log_warning "Cannot access blood-banking namespace"
+    kubectl get pods -n api -o wide 2>/dev/null || log_warning "Cannot access api namespace"
     
     echo ""
     log_highlight "API GOVERNANCE PLATFORM:"
@@ -282,7 +282,7 @@ show_kubernetes_status() {
     
     echo ""
     log_highlight "ISTIO CONFIGURATION:"
-    kubectl get virtualservices,destinationrules -n blood-banking 2>/dev/null || log_warning "Cannot access Istio resources"
+    kubectl get virtualservices,destinationrules -n api 2>/dev/null || log_warning "Cannot access Istio resources"
 }
 
 show_service_endpoints() {

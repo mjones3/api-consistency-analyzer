@@ -78,11 +78,11 @@ else
     exit 1
 fi
 
-# Check blood banking services
-log_info "Checking blood banking services..."
-if kubectl get namespace blood-banking &> /dev/null; then
-    LEGACY_STATUS=$(kubectl get pods -n blood-banking -l app=legacy-donor-service -o jsonpath='{.items[0].status.phase}' 2>/dev/null)
-    MODERN_STATUS=$(kubectl get pods -n blood-banking -l app=modern-donor-service -o jsonpath='{.items[0].status.phase}' 2>/dev/null)
+# Check API services
+log_info "Checking API services..."
+if kubectl get namespace api &> /dev/null; then
+    LEGACY_STATUS=$(kubectl get pods -n api -l app=legacy-donor-service -o jsonpath='{.items[0].status.phase}' 2>/dev/null)
+    MODERN_STATUS=$(kubectl get pods -n api -l app=modern-donor-service -o jsonpath='{.items[0].status.phase}' 2>/dev/null)
     
     if [ "$LEGACY_STATUS" = "Running" ]; then
         log_success "Legacy Donor Service is running"
@@ -96,7 +96,7 @@ if kubectl get namespace blood-banking &> /dev/null; then
         log_warning "Modern Donor Service status: $MODERN_STATUS"
     fi
 else
-    log_warning "Blood banking namespace not found"
+    log_warning "API namespace not found"
 fi
 
 # Check Istio
@@ -144,9 +144,9 @@ start_port_forward "api-governance" "8080" "80" "api-governance" "Main Dashboard
 start_port_forward "api-governance" "8090" "9090" "api-governance" "Metrics Endpoint" "/metrics"
 
 echo ""
-echo -e "${BLUE}🩸 Blood Banking Services:${NC}"
-start_port_forward "legacy-donor-service" "8081" "8081" "blood-banking" "Legacy Donor Service" "/swagger-ui.html"
-start_port_forward "modern-donor-service" "8082" "8082" "blood-banking" "Modern Donor Service" "/swagger-ui.html"
+echo -e "${BLUE}🔗 API Services:${NC}"
+start_port_forward "legacy-donor-service" "8081" "8081" "api" "Legacy Donor Service" "/swagger-ui.html"
+start_port_forward "modern-donor-service" "8082" "8082" "api" "Modern Donor Service" "/swagger-ui.html"
 
 echo ""
 echo -e "${BLUE}🔍 Istio Service Mesh Monitoring:${NC}"
@@ -169,7 +169,7 @@ echo -e "  • ${CYAN}FHIR Recommendations:${NC}     http://localhost:8080/api/v
 echo -e "  • ${CYAN}Discovered Services:${NC}      http://localhost:8080/api/v1/discovered-services"
 echo -e "  • ${CYAN}Prometheus Metrics:${NC}       http://localhost:8090/metrics"
 echo ""
-echo -e "${PURPLE}🩸 Blood Banking Services:${NC}"
+echo -e "${PURPLE}🔗 API Services:${NC}"
 echo -e "  • ${CYAN}Legacy Service API:${NC}       http://localhost:8081/swagger-ui.html"
 echo -e "  • ${CYAN}Legacy Health:${NC}            http://localhost:8081/actuator/health"
 echo -e "  • ${CYAN}Modern Service API:${NC}       http://localhost:8082/swagger-ui.html"

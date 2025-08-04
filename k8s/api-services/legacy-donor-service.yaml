@@ -1,22 +1,22 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: blood-banking
+  name: api
   labels:
     istio-injection: enabled
-    app.kubernetes.io/name: blood-banking
+    app.kubernetes.io/name: api
     app.kubernetes.io/part-of: arc-one-platform
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: legacy-donor-service
-  namespace: blood-banking
+  namespace: api
   labels:
     app: legacy-donor-service
     version: v1
     component: donor-management
-    domain: blood-banking
+    domain: api
     compliance: non-fhir
     service-type: spring-boot
 spec:
@@ -31,7 +31,7 @@ spec:
         app: legacy-donor-service
         version: v1
         component: donor-management
-        domain: blood-banking
+        domain: api
         compliance: non-fhir
         service-type: spring-boot
       annotations:
@@ -93,11 +93,11 @@ apiVersion: v1
 kind: Service
 metadata:
   name: legacy-donor-service
-  namespace: blood-banking
+  namespace: api
   labels:
     app: legacy-donor-service
     service: legacy-donor-service
-    domain: blood-banking
+    domain: api
     compliance: non-fhir
     service-type: spring-boot
   annotations:
@@ -116,11 +116,11 @@ apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
   name: legacy-donor-service
-  namespace: blood-banking
+  namespace: api
 spec:
   hosts:
     - legacy-donor-service
-    - legacy-donor-service.blood-banking.svc.cluster.local
+    - legacy-donor-service.api.svc.cluster.local
   http:
     - match:
         - uri:
@@ -139,7 +139,7 @@ apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
 metadata:
   name: legacy-donor-service
-  namespace: blood-banking
+  namespace: api
 spec:
   host: legacy-donor-service
   trafficPolicy:
@@ -160,7 +160,7 @@ apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
   name: legacy-donor-service
-  namespace: blood-banking
+  namespace: api
 spec:
   selector:
     matchLabels:

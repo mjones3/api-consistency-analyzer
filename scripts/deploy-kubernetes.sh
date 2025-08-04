@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Deploy API Governance Platform and Blood Banking Services to Kubernetes with Istio
+# Deploy API Governance Platform and API Services to Kubernetes with Istio
 
 set -e
 
@@ -67,22 +67,22 @@ check_prerequisites() {
     log_success "Prerequisites check completed"
 }
 
-deploy_blood_banking_services() {
-    log_step "Deploying Blood Banking Services..."
+deploy_api_services() {
+    log_step "Deploying API Services..."
     
-    # Apply blood banking services
-    log_info "Creating blood-banking namespace with Istio injection..."
-    kubectl apply -f k8s/blood-banking-services/legacy-donor-service.yaml
+    # Apply API services
+    log_info "Creating api namespace with Istio injection..."
+    kubectl apply -f k8s/api-services/legacy-donor-service.yaml
     
     log_info "Deploying Modern Donor Service..."
-    kubectl apply -f k8s/blood-banking-services/modern-donor-service.yaml
+    kubectl apply -f k8s/api-services/modern-donor-service.yaml
     
     # Wait for deployments to be ready
-    log_info "Waiting for blood banking services to be ready..."
-    kubectl wait --for=condition=available --timeout=300s deployment/legacy-donor-service -n blood-banking
-    kubectl wait --for=condition=available --timeout=300s deployment/modern-donor-service -n blood-banking
+    log_info "Waiting for API services to be ready..."
+    kubectl wait --for=condition=available --timeout=300s deployment/legacy-donor-service -n api
+    kubectl wait --for=condition=available --timeout=300s deployment/modern-donor-service -n api
     
-    log_success "Blood Banking Services deployed successfully"
+    log_success "API Services deployed successfully"
 }
 
 deploy_api_governance() {
@@ -124,8 +124,8 @@ verify_deployment() {
     # Check all pods are running
     log_info "Checking pod status..."
     echo ""
-    echo "Blood Banking Services:"
-    kubectl get pods -n blood-banking -o wide
+    echo "API Services:"
+    kubectl get pods -n api -o wide
     echo ""
     echo "API Governance Platform:"
     kubectl get pods -n api-governance -o wide
@@ -133,8 +133,8 @@ verify_deployment() {
     # Check services
     log_info "Checking services..."
     echo ""
-    echo "Blood Banking Services:"
-    kubectl get svc -n blood-banking
+    echo "API Services:"
+    kubectl get svc -n api
     echo ""
     echo "API Governance Services:"
     kubectl get svc -n api-governance
@@ -143,10 +143,10 @@ verify_deployment() {
     log_info "Checking Istio configuration..."
     echo ""
     echo "VirtualServices:"
-    kubectl get virtualservices -n blood-banking
+    kubectl get virtualservices -n api
     echo ""
     echo "DestinationRules:"
-    kubectl get destinationrules -n blood-banking
+    kubectl get destinationrules -n api
     
     # Test service connectivity
     log_info "Testing service connectivity..."
@@ -158,14 +158,14 @@ verify_deployment() {
         log_info "Testing connectivity from API Governance pod..."
         
         # Test Legacy Service
-        if kubectl exec -n api-governance $API_POD -- curl -s -f http://legacy-donor-service.blood-banking.svc.cluster.local:8081/actuator/health > /dev/null; then
+        if kubectl exec -n api-governance $API_POD -- curl -s -f http://legacy-donor-service.api.svc.cluster.local:8081/actuator/health > /dev/null; then
             log_success "✓ Legacy Donor Service is accessible"
         else
             log_warning "✗ Legacy Donor Service is not accessible"
         fi
         
         # Test Modern Service
-        if kubectl exec -n api-governance $API_POD -- curl -s -f http://modern-donor-service.blood-banking.svc.cluster.local:8082/actuator/health > /dev/null; then
+        if kubectl exec -n api-governance $API_POD -- curl -s -f http://modern-donor-service.api.svc.cluster.local:8082/actuator/health > /dev/null; then
             log_success "✓ Modern Donor Service is accessible"
         else
             log_warning "✗ Modern Donor Service is not accessible"
@@ -226,7 +226,7 @@ echo "  • Latest Report: http://localhost:8080/api/v1/reports/latest"
 echo "  • FHIR Recommendations: http://localhost:8080/api/v1/fhir/recommendations"
 echo ""
 
-log_info "🩸 Blood Banking Services:"
+log_info "🔗 API Services:"
 echo "  • Legacy Service API: http://localhost:8081/swagger-ui.html"
 echo "  • Legacy Health: http://localhost:8081/actuator/health"
 echo "  • Modern Service API: http://localhost:8082/swagger-ui.html"
@@ -278,8 +278,8 @@ start_port_forward() {
 
 # Start all port forwards
 start_port_forward "api-governance" "8080" "80" "api-governance" "API Governance Platform"
-start_port_forward "legacy-donor-service" "8081" "8081" "blood-banking" "Legacy Donor Service"
-start_port_forward "modern-donor-service" "8082" "8082" "blood-banking" "Modern Donor Service"
+start_port_forward "legacy-donor-service" "8081" "8081" "api" "Legacy Donor Service"
+start_port_forward "modern-donor-service" "8082" "8082" "api" "Modern Donor Service"
 
 # Istio monitoring services
 start_port_forward "kiali" "20001" "20001" "istio-system" "Kiali Dashboard"
@@ -338,8 +338,8 @@ display_access_information() {
     echo ""
     echo "🚀 Services Deployed:"
     echo "   ✓ API Governance Platform (api-governance namespace)"
-    echo "   ✓ Legacy Donor Service (blood-banking namespace)"
-    echo "   ✓ Modern Donor Service (blood-banking namespace)"
+    echo "   ✓ Legacy Donor Service (api namespace)"
+    echo "   ✓ Modern Donor Service (api namespace)"
     echo "   ✓ Istio Service Mesh with monitoring stack"
     echo ""
     echo "🔗 Quick Start:"
@@ -353,7 +353,7 @@ display_access_information() {
     echo "   • ${CYAN}Service Mesh Visualization:${NC} http://localhost:20001/kiali/"
     echo "   • ${CYAN}Metrics & Monitoring:${NC} http://localhost:3000/"
     echo ""
-    echo "3. 🩸 Blood Banking Services:"
+    echo "3. 🔗 API Services:"
     echo "   • ${CYAN}Legacy Service API:${NC} http://localhost:8081/swagger-ui.html"
     echo "   • ${CYAN}Modern Service API:${NC} http://localhost:8082/swagger-ui.html"
     echo ""
@@ -397,7 +397,7 @@ main() {
     
     # Run deployment steps
     check_prerequisites
-    deploy_blood_banking_services
+    deploy_api_services
     deploy_api_governance
     verify_deployment
     setup_port_forwarding
